@@ -31,19 +31,7 @@
 static char rcsid[] = "$Id$";
 #endif /* not lint */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <errno.h>
-#include <unistd.h>
-#include <string.h>
-#include <signal.h>
-#include <time.h>
-#include <sys/time.h>
-#include <sys/resource.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <netdb.h>
+#include "includes.h"
 
 #include "print.h"
 #include "debug.h"
@@ -111,7 +99,9 @@ main(int argc, char **argv)
 			*hn_method,
 			*dshpath;
 	struct member	*ptr;
+#if defined(RLIMIT_NOFILE) || defined(RLIMIT_NPROC)
 	struct rlimit	 rl;
+#endif /* defined(RLIMIT_NOFILE) || defined(RLIMIT_NPROC) */
 
 	int		 rc = 0;
 
@@ -148,6 +138,7 @@ main(int argc, char **argv)
 		watchdog = atoi(getenv("DSHTIMEOUT"));
 	debug_msg("DSHTIMEOUT = %d\n", watchdog);
 
+#if defined(RLIMIT_NOFILE)
 	if (getrlimit(RLIMIT_NOFILE, &rl) == -1)
 	{
 		perror("getrlimit");
@@ -157,7 +148,9 @@ main(int argc, char **argv)
 		debug_msg("maximum fanout: %d\n", MAX_FANOUT(rl.rlim_cur));
 		/* XXX Reduce fflag if necessary */
 	}
+#endif /* defined(RLIMIT_NOFILE) */
 
+#if defined(RLIMIT_NPROC)
 	if (getrlimit(RLIMIT_NPROC, &rl) == -1)
 	{
 		perror("getrlimit");
@@ -166,6 +159,7 @@ main(int argc, char **argv)
 		    rl.rlim_cur, rl.rlim_max);
 		/* XXX Reduce fflag if necessary */
 	}
+#endif /* defined(RLIMIT_NPROC) */
 
 	if ((fanout = getenv("FANOUT")) != NULL && atoi(fanout) > 0)
 		fflag = atoi(fanout);

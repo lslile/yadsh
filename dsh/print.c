@@ -31,10 +31,7 @@
 static char rcsid[] = "$Id$";
 #endif /* not lint */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdarg.h>
-#include <string.h>
+#include "includes.h"
 
 #include "dsh.h"
 

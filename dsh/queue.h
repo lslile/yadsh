@@ -37,8 +37,8 @@ typedef struct process
 	int		 status,
 			 done,
 			 signal,
-			 stdout,
-			 stderr,
+			 pstdout,
+			 pstderr,
 			 outcount,
 			 errcount;
 	char		*outbuffer,

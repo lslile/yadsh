@@ -31,14 +31,7 @@
 static char rcsid[] = "$Id$";
 #endif /* not lint */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <errno.h>
-#include <string.h>
-#include <signal.h>
-#include <sys/types.h>
-#include <unistd.h>
-#include <time.h>
+#include "includes.h"
 
 #include "debug.h"
 #include "queue.h"
@@ -89,8 +82,8 @@ queue_insert(char *name, int argc, char **argv)
 	new = (struct process *)malloc(sizeof(struct process));
 	memset(new, '\0', sizeof(struct process));
 	new->status = -1;
-	new->stdout = -1;
-	new->stderr = -1;
+	new->pstdout = -1;
+	new->pstderr = -1;
 	new->argv = (char **)malloc(sizeof(char *) * (argc + 1));
 	memset(new->argv, '\0', sizeof(char *) * (argc + 1));
 	for (i = 0; i < argc; i++)
@@ -183,17 +176,17 @@ queue_run(int signal)
 			kill(ptr->pid, SIGTERM);
 		}
 
-		if (ptr->stdout >= 0)
+		if (ptr->pstdout >= 0)
 		{
-			FD_SET(ptr->stdout, &read_fds);
-			hi_fd = (ptr->stdout > hi_fd ? ptr->stdout : hi_fd);
+			FD_SET(ptr->pstdout, &read_fds);
+			hi_fd = (ptr->pstdout > hi_fd ? ptr->pstdout : hi_fd);
 		}
-		if (ptr->stderr >= 0)
+		if (ptr->pstderr >= 0)
 		{
-			FD_SET(ptr->stderr, &read_fds);
-			hi_fd = (ptr->stderr > hi_fd ? ptr->stderr : hi_fd);
+			FD_SET(ptr->pstderr, &read_fds);
+			hi_fd = (ptr->pstderr > hi_fd ? ptr->pstderr : hi_fd);
 		}
-		if (ptr->done && ptr->stdout == -1 && ptr->stderr == -1)
+		if (ptr->done && ptr->pstdout == -1 && ptr->pstderr == -1)
 		{
 			proc_output(stdout, ptr, &ptr->outbuffer, &ptr->outcount, 1);
 			proc_output(stderr, ptr, &ptr->errbuffer, &ptr->errcount, 1);
@@ -217,16 +210,16 @@ queue_run(int signal)
 	{
 		int count;
 
-		if (ptr->stdout >= 0 && FD_ISSET(ptr->stdout, &read_fds))
+		if (ptr->pstdout >= 0 && FD_ISSET(ptr->pstdout, &read_fds))
 		{
 			debug_msg("proc %d: stdout ready\n", ptr->pid);
-			count = proc_read(ptr, ptr->stdout,
+			count = proc_read(ptr, ptr->pstdout,
 					&ptr->outbuffer, &ptr->outcount);
 			if (count == 0)
 			{
 				debug_msg("%d closing stdout\n", ptr->pid);
-				close(ptr->stdout);
-				ptr->stdout = -1;
+				close(ptr->pstdout);
+				ptr->pstdout = -1;
 			} 
 			/*proc_output(stdout, ptr, &ptr->outbuffer, &ptr->outcount, 0);*/
 			if (ptr->watchdog)
@@ -236,16 +229,16 @@ queue_run(int signal)
 
 			}
 		}
-		if (ptr->stderr >= 0 && FD_ISSET(ptr->stderr, &read_fds))
+		if (ptr->pstderr >= 0 && FD_ISSET(ptr->pstderr, &read_fds))
 		{
 			debug_msg("proc %d: stderr ready\n", ptr->pid);
-			count = proc_read(ptr, ptr->stderr,
+			count = proc_read(ptr, ptr->pstderr,
 					&ptr->errbuffer, &ptr->errcount);
 			if (count == 0)
 			{
 				debug_msg("%d closing stderr\n", ptr->pid);
-				close(ptr->stderr);
-				ptr->stderr = -1;
+				close(ptr->pstderr);
+				ptr->pstderr = -1;
 			}
 			/*proc_output(stderr, ptr, &ptr->errbuffer, &ptr->errcount, 0);*/
 			if (ptr->watchdog)

@@ -31,15 +31,7 @@
 static char rcsid[] = "$Id$";
 #endif /* not lint */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <errno.h>
-#include <unistd.h>
-#include <string.h>
-#include <fcntl.h>
-#include <signal.h>
-#include <sys/types.h>
-#include <sys/wait.h>
+#include "includes.h"
 
 #include "dsh.h"
 #include "queue.h"
@@ -222,22 +214,22 @@ proc_spawn(struct process *proc)
 		int fdflags;
 		char **tmp = proc->argv;
 		/* Parent */
-		proc->stdout = stdoutpipe[0];
+		proc->pstdout = stdoutpipe[0];
 		close(stdoutpipe[1]);
-		proc->stderr = stderrpipe[0];
+		proc->pstderr = stderrpipe[0];
 		close(stderrpipe[1]);
 
 		/* set descriptors to non-blocking XXX */
-		if (!((fdflags = fcntl(proc->stdout, F_GETFL, 0)) < 0))
+		if (!((fdflags = fcntl(proc->pstdout, F_GETFL, 0)) < 0))
 		{
-			if ((fcntl(proc->stdout, F_SETFL, fdflags | O_NDELAY)) < 0)
+			if ((fcntl(proc->pstdout, F_SETFL, fdflags | O_NDELAY)) < 0)
 				perror("proc_spawn() fcntl stdout");
 		} else {
 			perror("proc_spawn() fcntl stdout");
 		}
-		if (!((fdflags = fcntl(proc->stderr, F_GETFL, 0)) < 0))
+		if (!((fdflags = fcntl(proc->pstderr, F_GETFL, 0)) < 0))
 		{
-			if ((fcntl(proc->stderr, F_SETFL, fdflags | O_NDELAY)) < 0)
+			if ((fcntl(proc->pstderr, F_SETFL, fdflags | O_NDELAY)) < 0)
 				perror("proc_spawn() fcntl stderr");
 		} else {
 			perror("proc_spawn() fcntl stderr");
