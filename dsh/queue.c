@@ -80,6 +80,7 @@ queue_insert(struct member *ptr, char *name, int argc, char **argv)
 	new = (struct process *)malloc(sizeof(struct process));
 	memset(new, '\0', sizeof(struct process));
 	new->status = -1;
+	new->pstdin = -1;
 	new->pstdout = -1;
 	new->pstderr = -1;
 	new->argv = (char **)malloc(sizeof(char *) * (argc + 1));
@@ -136,6 +137,12 @@ queue_delete(struct process *ptr)
 		(ptr->prev)->next = ptr->next;
 	if (ptr->next)
 		(ptr->next)->prev = ptr->prev;
+	if (ptr->pstdin >= 0)
+		close(ptr->pstdin);
+	if (ptr->pstdout >= 0)
+		close(ptr->pstdout);
+	if (ptr->pstderr >= 0)
+		close(ptr->pstderr);
 	free(ptr);
 	queue_count--;
 
@@ -146,7 +153,8 @@ int
 queue_run(int quiet, int signal)
 {
 	struct process	*ptr = queue;
-	fd_set		 read_fds;
+	fd_set		 read_fds,
+			 write_fds;
 	struct timeval	 tv;
 	int		 hi_fd = 0,
 			 rc = 0;
@@ -163,6 +171,7 @@ queue_run(int quiet, int signal)
 	slots = queue_slots();
 
 	FD_ZERO(&read_fds);
+	FD_ZERO(&write_fds);
 	while (ptr)
 	{
 		struct process *next = ptr->next;
@@ -179,7 +188,13 @@ queue_run(int quiet, int signal)
 			ptr->timer = 0;
 			kill(ptr->pid, SIGTERM);
 		}
-
+#if 0
+		if (ptr->pstdin >= 0)
+		{
+			FD_SET(ptr->pstdin, &write_fds);
+			hi_fd = (ptr->pstdin > hi_fd ? ptr->pstdin : hi_fd);
+		}
+#endif
 		if (ptr->pstdout >= 0)
 		{
 			FD_SET(ptr->pstdout, &read_fds);
@@ -205,7 +220,7 @@ queue_run(int quiet, int signal)
 	hi_fd++;
 	tv.tv_sec = 0;
 	tv.tv_usec = 100;
-	if (select(hi_fd, &read_fds, NULL, NULL, &tv) == -1)
+	if (select(hi_fd, &read_fds, &write_fds, NULL, &tv) == -1)
 	{
 		if (errno != EINTR)
 			perror("queue_run() select");
@@ -216,7 +231,16 @@ queue_run(int quiet, int signal)
 	while (ptr)
 	{
 		int count;
-
+#if 0
+		if (ptr->pstdin >= 0 && FD_ISSET(ptr->pstdin, &write_fds))
+		{
+			debug_msg("proc %d: stdin ready\n", ptr->pid);
+			if (!quiet)
+				proc_output(stdout, ptr, &ptr->outbuffer, &ptr->outcount, 1);
+			close(ptr->pstdin);
+			ptr->pstdin = -1;
+		}
+#endif
 		if (ptr->pstdout >= 0 && FD_ISSET(ptr->pstdout, &read_fds))
 		{
 			debug_msg("proc %d: stdout ready\n", ptr->pid);
@@ -228,17 +252,19 @@ queue_run(int quiet, int signal)
 				close(ptr->pstdout);
 				ptr->pstdout = -1;
 			} 
-#if 0
 			if (!quiet)
 				proc_output(stdout, ptr, &ptr->outbuffer, &ptr->outcount, 0);
-#endif /* 0 */
 			if (ptr->watchdog)
 			{
 				debug_msg("queue_run() watchdog reset %d\n", ptr->pid);
 				ptr->timer = now + ptr->watchdog;
 
 			}
+		} else {
+			if (!quiet && ptr->pstdout >= 0 && ptr->outcount)
+				proc_output(stdout, ptr, &ptr->outbuffer, &ptr->outcount, 1);
 		}
+
 		if (ptr->pstderr >= 0 && FD_ISSET(ptr->pstderr, &read_fds))
 		{
 			debug_msg("proc %d: stderr ready\n", ptr->pid);
@@ -250,16 +276,17 @@ queue_run(int quiet, int signal)
 				close(ptr->pstderr);
 				ptr->pstderr = -1;
 			}
-#if 0
 			if (!quiet)
 				proc_output(stderr, ptr, &ptr->errbuffer, &ptr->errcount, 0);
-#endif /* 0 */
 			if (ptr->watchdog)
 			{
 				debug_msg("queue_run() watchdog reset %d\n", ptr->pid);
 				ptr->timer = now + ptr->watchdog;
 			}
 
+		} else {
+			if (!quiet && ptr->pstderr >=0 && ptr->errcount)
+				proc_output(stderr, ptr, &ptr->errbuffer, &ptr->errcount, 1);
 		}
 		ptr = ptr->next;
 	}
