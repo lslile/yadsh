@@ -37,6 +37,7 @@ typedef struct process
 	int		 status,
 			 done,
 			 signal,
+			 pstdin,
 			 pstdout,
 			 pstderr,
 			 outcount,
