@@ -184,7 +184,8 @@ pid_t
 proc_spawn(struct process *proc)
 {
 	pid_t	 pid;
-	int	 stdoutpipe[2],
+	int	 stdinpipe[2],
+		 stdoutpipe[2],
 		 stderrpipe[2];
 
 	if (sigchld == -1)
@@ -193,7 +194,8 @@ proc_spawn(struct process *proc)
 		sigchld = 0;
 	}
 
-	if ((pipe(stdoutpipe) != 0) ||
+	if ((pipe(stdinpipe) != 0) ||
+	    (pipe(stdoutpipe) != 0) ||
 	    (pipe(stderrpipe) != 0))
 	{
 		perror("proc_spawn() pipe");
@@ -211,6 +213,8 @@ proc_spawn(struct process *proc)
 		int fdflags;
 		char **tmp = proc->argv;
 		/* Parent */
+		proc->pstdin = stdinpipe[1];
+		close(stdinpipe[0]);
 		proc->pstdout = stdoutpipe[0];
 		close(stdoutpipe[1]);
 		proc->pstderr = stderrpipe[0];
@@ -244,15 +248,24 @@ proc_spawn(struct process *proc)
 		 * XXX Convince SSH that I am not going to talk to it, under any circumstances!
 		 *      na-na-na-na i'm not talking to you na-na-na-na
 		 */
+#if defined HAVE_UNSETENV
+		unsetenv("DISPLAY");
+#elif defined HAVE_PUTENV
 		putenv("DISPLAY=");
+#endif
 		setsid();
 
-		if ((dup2(stdoutpipe[1], fileno(stdout)) == -1) ||
+		if ((dup2(stdinpipe[0], fileno(stdin)) == -1) ||
+		    (dup2(stdoutpipe[1], fileno(stdout)) == -1) ||
 		    (dup2(stderrpipe[1], fileno(stderr)) == -1))
 		{
 			perror("proc_spawn() dup2");
 			exit(1);
 		}
+		/*fclose(stdin);*/
+		proc->pstdin = -1;
+		close(stdinpipe[0]);
+		close(stdinpipe[1]);
 		close(stdoutpipe[0]);
 		close(stdoutpipe[1]);
 		close(stderrpipe[0]);
