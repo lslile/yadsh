@@ -1,6 +1,8 @@
 ## $Id$
 
-bin_PROGRAMS = dsh
+INCLUDES =	$(RL_CFLAGS)
+
+bin_PROGRAMS =	dsh
 
 dsh_SOURCES =	collective.c \
 		debug.c \
@@ -10,6 +12,8 @@ dsh_SOURCES =	collective.c \
 		queue.c	\
 		resolv.c \
 		usage.c
+
+dsh_LDADD =	$(RL_LIBS)
 
 noinst_HEADERS = acconfig.h \
 		collective.h \
