@@ -32,7 +32,7 @@
 
 pid_t proc_spawn(struct process *);
 int proc_read(struct process *, int, char **, int *);
-void proc_reap(struct process *);
+int proc_reap(struct process *);
 int proc_output(FILE *, struct process *, char **, int *, int);
 
 #endif /* _proc_h */

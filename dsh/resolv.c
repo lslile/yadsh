@@ -49,7 +49,7 @@ resolv_host(char *name)
 	if (!name || *name == '\0' || *name == '@')
 		return (char *)NULL;
 
-	bzero((char *)&addr, sizeof(addr));
+	memset((char *)&addr, '\0', sizeof(addr));
 	if (inet_aton(name, &addr.sin_addr) == 1) {
 		return name;
 	} else {
@@ -96,7 +96,7 @@ resolv_netgroup(char *name)
 		tmp = (char **)malloc(sizeof(char *) * (i + 2));
 		if (netgroup)
 		{
-			bcopy(netgroup, tmp, sizeof(char *) * i);
+			memcpy(tmp, netgroup, sizeof(char *) * i);
 			free(netgroup);
 		}
 		netgroup = tmp;

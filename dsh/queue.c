@@ -86,12 +86,12 @@ queue_insert(char *name, int argc, char **argv)
 	debug_msg("queue_insert(%s)\n", name);
 
 	new = (struct process *)malloc(sizeof(struct process));
-	bzero(new, sizeof(struct process));
+	memset(new, '\0', sizeof(struct process));
 	new->status = -1;
 	new->stdout = -1;
 	new->stderr = -1;
 	new->argv = (char **)malloc(sizeof(char *) * (argc + 1));
-	bzero(new->argv, sizeof(char *) * (argc + 1));
+	memset(new->argv, '\0', sizeof(char *) * (argc + 1));
 	for (i = 0; i < argc; i++)
 	{
 		if (argv[i])
@@ -150,7 +150,8 @@ queue_run(int signal)
 	struct process	*ptr = queue;
 	fd_set		 read_fds;
 	struct timeval	 tv;
-	int		 hi_fd = 0;
+	int		 hi_fd = 0,
+			 rc = 0;
 
 	debug_msg("queue_run(%d) [load %d / slots %d]\n",
 	    signal, queue_count, queue_slots());
@@ -226,7 +227,7 @@ queue_run(int signal)
 		ptr = ptr->next;
 	}
 
-	proc_reap(queue);
+	rc = proc_reap(queue);
 
-	return 0;
+	return rc;
 }

@@ -87,7 +87,7 @@ collective_add_member(char *name)
 		if ((reliable = resolv_host(name)) != (char *)NULL)
 		{
 			member = malloc(sizeof(struct member));
-			bzero(member, sizeof(struct member));
+			memset(member, '\0', sizeof(struct member));
 			member->name = strdup(name);
 			member->reliable = strdup(reliable);
 		} else {
@@ -203,14 +203,14 @@ collective_add_stdin(FILE *file)
 		if ((tmp = read(fd, &readbuffer, sizeof(readbuffer))) > 0)
 		{
 			tmpbuffer = (char *)malloc(sizeof(char) * (count + tmp + 1));
-			bzero(tmpbuffer, sizeof(char) * (count + tmp + 1));
+			memset(tmpbuffer, '\0', sizeof(char) * (count + tmp + 1));
 			if (wcoll)
 			{
-				bcopy(wcoll, tmpbuffer, sizeof(char) * count);
+				memcpy(tmpbuffer, wcoll, sizeof(char) * count);
 				free(wcoll);
 			}
 			wcoll = tmpbuffer;
-			bcopy(readbuffer, wcoll + count, sizeof(char) * tmp);
+			memcpy(wcoll + count, readbuffer, sizeof(char) * tmp);
 			count += tmp;
 			
 		}

@@ -54,17 +54,18 @@ proc_sig_child(int signo)
 	debug_msg("child exited (sigchld=%d)\n", sigchld);
 }
 
-void
+int
 proc_reap(struct process *queue)
 {
-	sigset_t	newmask,
-			oldmask;
+	sigset_t	 newmask,
+			 oldmask;
 	pid_t	 	 pid = 0;
-	int 	 	 status;
+	int 	 	 status,
+			 rc = 0;
 	struct process	*ptr;
 
 	if (!queue || !sigchld)
-		return;
+		return 0;
 
 	sigemptyset(&newmask);
 	sigaddset(&newmask, SIGCHLD);
@@ -85,6 +86,8 @@ proc_reap(struct process *queue)
 				ptr->done = 1;
 				ptr->status = status;
 				ptr = (struct process *)NULL;
+				if (status)
+					rc++;
 			} else {
 				ptr = ptr->next;
 			}
@@ -95,6 +98,8 @@ proc_reap(struct process *queue)
 
 	if (sigprocmask(SIG_SETMASK, &oldmask, NULL) < 0)
 		perror("sigprocmask");
+
+	return rc;
 }
 
 int
@@ -118,16 +123,12 @@ proc_output(FILE *file, struct process *proc, char **buffer, int *length, int fl
 			{
 				*sep++ = '\0';
 				count = sep - out;
-				if (*tmp == '\r')
-					fprintf(file, "tmp is CR!\n");
-				fprintf(file, "%-16s%c (%d) %s}\n", proc->name,
-						((file == stdout) ? ':' : '|'),
-					       strlen(tmp), tmp);
+				if (strlen(tmp) != 1 || *tmp != '\r')
+					fprintf(file, "%-16s: %s\n", proc->name, tmp);
 			} else {
 				if (flush && count < *length)
 				{
-					fprintf(file, "%-16s%c %s\n", proc->name,
-							((file == stdout) ? ':' : '|'), tmp);
+					fprintf(file, "%-16s: %s\n", proc->name, tmp);
 					count += strlen(tmp);
 				}
 				*length -= count;
@@ -162,7 +163,7 @@ proc_read(struct process *proc, int fd, char **buffer, int *length)
 	char	 readbuf[TMPBUFSIZE];
 	int	 count;
 
-	bzero(&readbuf, sizeof(readbuf));
+	memset(&readbuf, '\0', sizeof(readbuf));
 
 	if ((count = read(fd, &readbuf, sizeof(readbuf))) > 0)
 	{
@@ -171,14 +172,14 @@ proc_read(struct process *proc, int fd, char **buffer, int *length)
 		debug_msg("proc_read() got %d bytes\n", count);
 
 		tmp = (char *)malloc(sizeof(char) * (*length + count + 1));
-		bzero(tmp, sizeof(char) * (*length + count + 1));
+		memset(tmp, '\0', sizeof(char) * (*length + count + 1));
 		if (*length && *buffer)
 		{
-			bcopy(*buffer, tmp, sizeof(char) * (*length));
+			memcpy(tmp, *buffer, sizeof(char) * (*length));
 			free(*buffer);
 		}
 		*buffer = tmp;
-		bcopy(readbuf, *buffer + (*length), sizeof(char) * count);
+		memcpy(*buffer + (*length), readbuf, sizeof(char) * count);
 		*length += count;
 	} else if (count < 0) {
 		perror("proc_read() read");

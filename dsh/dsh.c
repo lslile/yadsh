@@ -87,7 +87,6 @@ sig_handler(int signum)
 	if (sigcount > 5)
 	{
 		fprintf(stderr, "Something must be hung, exiting...\n");
-		fprintf(stdout, "Something must be hung, exiting...\n");
 		exit(1);
 	}
 }
@@ -104,24 +103,41 @@ main(int argc, char **argv)
 			*fanout,
 			*dsh_remote_cmd,
 			*rcmd_pgm,
-			*hn_method;
+			*hn_method,
+			*dshpath;
 	struct member	*ptr;
 	struct rlimit	 rl;
 
+	int		 rc = 0;
+
 	if (getenv("DSH_DEBUG") != NULL)
 		debug = 1;
+	debug_msg("DSH_DEBUG\n");
 
-	dsh_remote_cmd	= getenv("DSH_REMOTE_CMD") ?: "rsh";
+	dsh_remote_cmd = getenv("DSH_REMOTE_CMD") ?: "rsh";
 	if (!strcmp(dsh_remote_cmd, "rsh"))
-		rcmd_pgm	= getenv("RCMD_PGM") ?: "/usr/bin/rsh";
+		rcmd_pgm = getenv("RCMD_PGM") ?: "/usr/bin/rsh";
 	else if (!strcmp(dsh_remote_cmd, "secrshell"))
-		rcmd_pgm	= getenv("RCMD_PGM") ?: "/usr/bin/ssh";
+		rcmd_pgm = getenv("RCMD_PGM") ?: "/usr/bin/ssh";
 	else
 	{
 		fprintf(stderr, "unknown DSH_REMOTE_CMD %s\n", dsh_remote_cmd);
 		exit(1);
 	}
-	hn_method	= getenv("HN_METHOD") ?: "initial_hostname";
+	debug_msg("DSH_REMOTE_CMD = %s\n", dsh_remote_cmd);
+	debug_msg("RCMD_PGM = %s\n", rcmd_pgm);
+
+	hn_method = getenv("HN_METHOD") ?: "initial_hostname";
+	if (strcmp(hn_method, "initial_hostname") &&
+	    strcmp(hn_method, "reliable"))
+	{
+		fprintf(stderr, "unknown HN_METHOD %s\n", hn_method);
+		exit(1);
+	}
+	debug_msg("HN_METHOD = %s\n", hn_method);
+
+	dshpath = getenv("DSHPATH") ?: "/usr/ucb:/bin:/usr/bin:.";
+	debug_msg("DSHPATH = %s\n", dshpath);
 
 	if (getrlimit(RLIMIT_NOFILE, &rl) == -1)
 	{
@@ -208,11 +224,8 @@ main(int argc, char **argv)
 	argc -= optind;
 	argv += optind;
 
-	if (!argc)
-		exit(usage());
-
 	remote_argv = (char **)malloc(sizeof(char *) * (argc + remote_argc_pad));
-	bzero(remote_argv, sizeof(char *) * (argc + remote_argc_pad));
+	memset(remote_argv, argc + remote_argc_pad, sizeof(char *));
 	remote_argv[remote_argc++] = strdup(rcmd_pgm);
 	if (lflag)
 	{
@@ -234,7 +247,7 @@ main(int argc, char **argv)
 	remote_argv[remote_argc] = NULL; /* Last argv entry! */
 
 	debug_msg("remote_argv = ");
-	for (i = 0; i < remote_argc; i++)
+	for (i = 0; i <= remote_argc; i++)
 		debug_msg("%s ", (remote_argv[i] ? : "(NULL)"));
 	debug_msg("\nremote_argc = %d - %d - %d\n",
 	    remote_argc, argc, argc + remote_argc_pad);
@@ -269,6 +282,9 @@ main(int argc, char **argv)
 	if (qflag)
 		return collective_display();
 
+	if (!argc)
+		exit(usage());
+
 	signal(SIGINT,  &sig_handler);
 	signal(SIGQUIT, &sig_handler);
 	signal(SIGABRT, &sig_handler);
@@ -279,10 +295,13 @@ main(int argc, char **argv)
 	{
 		while (queue_slots() > 0 && (!signaled && ptr))
 		{
-			queue_insert(ptr->name, remote_argc, remote_argv);
+			char *name = ptr->name;
+			if (!strcmp(hn_method, "reliable"))
+				name = ptr->reliable;
+			queue_insert(name, remote_argc, remote_argv);
 			ptr = collective_get_next(ptr);
 		}
-		queue_run(signaled);
+		rc = queue_run(signaled);
 	}
 
 	if (signaled > 0 && queue_load() > 0)
@@ -291,5 +310,5 @@ main(int argc, char **argv)
 		    queue_load());
 	}
 
-	return 0;
+	return rc;
 }
