@@ -33,6 +33,10 @@ static char rcsid[] = "$Id$";
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include <sys/mman.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <string.h>
 
 #include "dsh.h"
@@ -52,6 +56,25 @@ typedef struct member
 struct member	*collective = (struct member *)NULL;
 
 int		 collective_count = 0;
+
+int
+collective_parse(char *buffer, char separator)
+{
+	char	*tmp = strdup(buffer);
+	char	*ptr = tmp;
+
+	while (ptr)
+	{
+		char *sep;
+		if ((sep = strchr(ptr, separator)))
+			*sep++ = '\0';
+		if (strlen(ptr))
+			collective_add_member(ptr);
+		ptr = sep;
+	}
+	return 0;
+}
+
 
 int
 collective_add_member(char *name)
@@ -82,7 +105,7 @@ collective_add_member(char *name)
 		{
 			member = malloc(sizeof(struct member));
 			bzero(member, sizeof(struct member));
-			member->name = name;
+			member->name = strdup(name);
 			member->reliable = strdup(reliable);
 		} else {
 			if (!qflag)
@@ -92,7 +115,8 @@ collective_add_member(char *name)
 	}
 
 	if (collective) {
-		struct member *ptr;
+		struct member	*ptr,
+				*prev;
 		ptr = collective;
 		do
 		{
@@ -101,11 +125,11 @@ collective_add_member(char *name)
 				free(member);
 				return 0;
 			}
-			if (ptr->next)
-				ptr = ptr->next;
-		} while (ptr->next);
-		ptr->next = member;
-		member->prev = ptr;
+			prev = ptr;
+			ptr = ptr->next;
+		} while (ptr);
+		prev->next = member;
+		member->prev = prev;
 	} else {
 		collective = member;
 	}
@@ -126,6 +150,70 @@ collective_display(void)
 		ptr = ptr->next;
 	}
 	printf("\nfanout: %d\n", fflag);
+
+	return 0;
+}
+
+int
+collective_add_file(FILE *file)
+{
+	int		 fd = fileno(file);
+	char		*baddr;
+	struct stat	 sb;
+
+	if (fstat(fd, &sb) != 0)
+	{
+		perror("stat");
+		exit(1);
+	}
+
+	if ((baddr = (char *)mmap(0, sb.st_size, PROT_READ | PROT_WRITE, MAP_PRIVATE,
+	    fd, 0)) == MAP_FAILED)
+	{
+		perror("mmap");
+		exit(1);
+	}
+
+	collective_parse(baddr, '\n');
+
+	if (munmap(baddr, sb.st_size) == -1)
+	{
+		perror("munmap");
+		exit(1);
+	}
+
+	return 0;
+}
+
+int
+collective_add_stdin(FILE *file)
+{
+	char	 *wcoll = (char *)NULL;
+	int	 fd = fileno(file),
+		 count = 0,
+		 tmp;
+
+	do {
+		char	 readbuffer[1024],
+			*tmpbuffer;
+
+		if ((tmp = read(fd, &readbuffer, sizeof(readbuffer))) > 0) {
+			tmpbuffer = (char *)malloc(sizeof(char) * (count + tmp + 1));
+			bzero(tmpbuffer, sizeof(char) * (count + tmp + 1));
+			if (wcoll) {
+				bcopy(wcoll, tmpbuffer, sizeof(char) * count);
+				free(wcoll);
+			}
+			wcoll = tmpbuffer;
+			bcopy(readbuffer, wcoll + count, sizeof(char) * tmp);
+			count += tmp;
+			
+		}
+	} while (tmp > 0);
+
+	collective_parse(wcoll, '\n');
+
+	free(wcoll);
 
 	return 0;
 }

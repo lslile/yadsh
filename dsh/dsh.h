@@ -30,16 +30,19 @@
 #ifndef _dsh_h
 #define _dsh_h
 
+extern unsigned int	 qflag,
+			 iflag,
+			 vflag,
+			 cflag,
+			 tflag,
+			 dflag,
+			 Dflag,
+			 fflag;
+
+extern char		*lflag,
+			*wflag,
+			*oflag;
+	
 extern unsigned int	 debug;
-
-typedef struct member
-{
-	char		*name,
-			*reliable;
-	struct member	*prev,
-			*next;
-} member_t;
-
-struct member *collective = (struct member *)NULL;
 
 #endif /* _dsh_h */

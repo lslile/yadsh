@@ -33,6 +33,7 @@ static char rcsid[] = "$Id$";
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <errno.h>
 #include <unistd.h>
 #include <string.h>
 #include <sys/socket.h>
@@ -40,10 +41,10 @@ static char rcsid[] = "$Id$";
 #include <arpa/inet.h>
 #include <netdb.h>
 
-#include "dsh.h"
 #include "print.h"
 #include "debug.h"
 #include "resolv.h"
+#include "collective.h"
 
 unsigned int	 qflag = 0,
 		 iflag = 0,
@@ -58,71 +59,12 @@ char		*lflag = (char *)NULL,
 		*wflag = (char *)NULL,
 		*oflag = (char *)NULL;
 
-unsigned int	 debug = 0,
-		 collective_count = 0;
+unsigned int	 debug = 0;
+
+extern int 	 errno;
 
 int usage(void);
 
-int
-add_collective_member(char *name)
-{
-	char 		*reliable;
-	struct member	*member;
-
-	debug_msg("add_collective_member(%s)\n", (name ? name : "NULL"));
-
-	if (!name || *name == '\0')
-		return 1;
-
-	if (*name == '@' )
-	{
-		char **netgroup;
-		if ((netgroup = resolv_netgroup(name)) != (char **)NULL)
-		{
-			char **ptr = netgroup;
-			while (*ptr)
-			{
-				add_collective_member(*ptr);
-				ptr++;
-			}
-		}
-		return 0;
-	} else {
-		if ((reliable = resolv_host(name)) != (char *)NULL)
-		{
-			member = malloc(sizeof(struct member));
-			bzero(member, sizeof(struct member));
-			member->name = name;
-			member->reliable = strdup(reliable);
-		} else {
-			if (!qflag)
-				print_host_error(name, "unknown host\n");
-			return 1;
-		}
-	}
-
-	if (collective) {
-		struct member *ptr;
-		ptr = collective;
-		do
-		{
-			if (!strcmp(member->reliable, ptr->reliable)) {
-				debug_msg("add_collective_member - dropping duplicate\n");
-				free(member);
-				return 0;
-			}
-			if (ptr->next)
-				ptr = ptr->next;
-		} while (ptr->next);
-		ptr->next = member;
-		member->prev = ptr;
-	} else {
-		collective = member;
-	}
-	collective_count++;
-
-	return 0;
-}
 
 int
 main(int argc, char **argv)
@@ -130,10 +72,14 @@ main(int argc, char **argv)
 	extern int	 optind;
 	extern char	*optarg;
 	int		 ch;
-	char		*wcoll = (char *)NULL;
+	char		*wcoll = (char *)NULL,
+			*fanout;
 
 	if (getenv("DSH_DEBUG") != NULL)
 		debug = 1;
+
+	if ((fanout = getenv("FANOUT")) != NULL && atoi(fanout) > 0)
+		fflag = atoi(fanout);
 
 	while ((ch = getopt(argc, argv, "qhivctdDl:w:f:o:")) != -1)
 	{
@@ -192,31 +138,26 @@ main(int argc, char **argv)
 
 	if (wflag)
 	{
-		char *ptr;
-		ptr = wflag;
-		do 
+		if (*wflag != '-')
+			collective_parse(wflag, ',');
+		else 
+			collective_add_stdin(stdin);
+	} else {
+		FILE	*file = stdin;
+		if (!wflag)
 		{
-			char *sep;
-			if ((sep = strchr(ptr, ',')))
-				*sep++ = '\0';
-			add_collective_member(ptr);
-			ptr = sep;
-		} while(ptr);
+			if ((file = fopen(wcoll, "r")) == NULL)
+			{
+				perror("fopen");
+				return 1;
+			}
+		}
+		collective_add_file(file);
 	}
 
 	if (qflag)
-	{
-		struct member *ptr = collective;
-		printf("working collective (%d):", collective_count);
-		while (ptr->next)
-		{
-			printf("%s%s", (ptr->next ? ", " : ""), ptr->name);
-			ptr = ptr->next;
-		}
-		printf("\nfanout: %d\n", fflag);
-		return 0;
+		return collective_display();
 
-	}
 
 	return 0;
 }
