@@ -34,6 +34,7 @@ typedef struct member
 {
         char            *name,
                         *reliable;
+	int		 responding;
         struct member   *prev,
                         *next;
 } member_t;

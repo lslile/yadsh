@@ -81,6 +81,7 @@ collective_add_member(char *name)
 			memset(member, '\0', sizeof(struct member));
 			member->name = strdup(name);
 			member->reliable = strdup(reliable);
+			member->responding = 1;
 		} else {
 			if (!qflag)
 				print_host_error(name, "unknown host\n");

@@ -35,7 +35,7 @@ usage(void)
 {
         printf("Usage: dsh [-q]\n");
         printf("       dsh [-h]\n");
-        printf("       dsh [-i] [-v] [-c] [-t] [-d] [-D] [-l login_name]\n");
+        printf("       dsh [-i] [-v] [-c] [-t csh|sh] [-d] [-D] [-l login_name]\n");
         printf("           [-w {host_name|@netgroup[,...] | -} [-f fanout_value]\n");
        	printf("           [-o \"flags_and_parms\"] [-Y domain] [command]\n");
 	return 0;

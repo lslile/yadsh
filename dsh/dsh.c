@@ -44,7 +44,7 @@ unsigned int	 qflag = 0,
 		 iflag = 0,
 		 vflag = 0,
 		 cflag = 0,
-		 tflag = 0,
+		 tflag = 1, /* XXX Default shell from configure */
 		 dflag = 0,
 		 Dflag = 0,
 		 fflag = 64;
@@ -82,23 +82,90 @@ sig_handler(int signum)
 }
 
 int
+execute_command(int quiet, char *hn_method, int timeout, int argc, char **argv)
+{
+	int		 rc = 0;
+	struct member	*ptr;
+	int		 watchdog = timeout,
+			 watchdogs_set = 0,
+			 queue_watchdog = 0;
+
+	queue_max_slots(fflag);
+	ptr = collective_get_next(NULL);
+	while (((ptr && !signaled) || queue_load()))
+	{
+		time_t now = time(NULL);
+		if (queue_slots() == 0)
+		{
+			if (watchdog > now)
+			{
+				debug_msg("queue watchdog expired\n");
+				queue_set_watchdogs(watchdog);
+				watchdogs_set = 1;
+			}
+			if (!watchdog)
+			{
+				debug_msg("setting watchdog on queue\n");
+				queue_watchdog = now + watchdog;
+			}
+		}
+		if (queue_slots() && queue_watchdog)
+		{
+			debug_msg("clearing watchdog on queue\n");
+			queue_watchdog = 0;
+		}
+
+		while (queue_slots() > 0 && (!signaled && ptr))
+		{
+			if (cflag || ptr->responding)
+			{
+				char *name = ptr->name;
+				if (!strcmp(hn_method, "reliable"))
+					name = ptr->reliable;
+				queue_insert(ptr, name, argc, argv);
+			} else {
+				/* XXX Should delete from collective */
+				debug_msg("%s not responding, should delete from collective\n",
+						ptr->name);
+			}
+			ptr = collective_get_next(ptr);
+		}
+		rc += queue_run(quiet, signaled);
+
+		if (!ptr && queue_load() && !watchdogs_set)
+		{
+			queue_set_watchdogs(watchdog);
+			watchdogs_set = 1;
+		}
+	}
+
+	if (signaled > 0 && queue_load() > 0)
+	{
+		debug_msg("queued processes to be killed: %d\n",
+		    queue_load());
+	}
+
+	return rc;
+}
+
+int
 main(int argc, char **argv)
 {
 	extern int	 optind;
 	extern char	*optarg;
 	int		 ch,
 			 i,
-			 remote_argc_pad = 4,
-			 watchdog = TIMEOUT,
-			 watchdogs_set = 0,
-			 queue_watchdog = 0;
+			 remote_argc_pad = 5,
+			 dshtimeout = TIMEOUT;
 	char		*wcoll = (char *)NULL,
 			*fanout,
 			*dsh_remote_cmd,
 			*rcmd_pgm,
 			*hn_method,
 			*dshpath;
-	struct member	*ptr;
+
+	char		*ping[] = { "ping", "-w", "4", NULL, NULL };
+
 #if defined(RLIMIT_NOFILE) || defined(RLIMIT_NPROC)
 	struct rlimit	 rl;
 #endif /* defined(RLIMIT_NOFILE) || defined(RLIMIT_NPROC) */
@@ -131,12 +198,13 @@ main(int argc, char **argv)
 	}
 	debug_msg("HN_METHOD = %s\n", hn_method);
 
+	/* XXX Default path from configure */
 	dshpath = getenv("DSHPATH") ?: "/usr/ucb:/bin:/usr/bin:.";
 	debug_msg("DSHPATH = %s\n", dshpath);
 
 	if (getenv("DSHTIMEOUT"))
-		watchdog = atoi(getenv("DSHTIMEOUT"));
-	debug_msg("DSHTIMEOUT = %d\n", watchdog);
+		dshtimeout = atoi(getenv("DSHTIMEOUT"));
+	debug_msg("DSHTIMEOUT = %d\n", dshtimeout);
 
 #if defined(RLIMIT_NOFILE)
 	if (getrlimit(RLIMIT_NOFILE, &rl) == -1)
@@ -164,7 +232,7 @@ main(int argc, char **argv)
 	if ((fanout = getenv("FANOUT")) != NULL && atoi(fanout) > 0)
 		fflag = atoi(fanout);
 
-	while ((ch = getopt(argc, argv, "qhivctdDl:w:f:o:")) != -1)
+	while ((ch = getopt(argc, argv, "qhivct:dDl:w:f:o:")) != -1)
 	{
 		switch(ch)
 		{
@@ -184,7 +252,15 @@ main(int argc, char **argv)
 				cflag = 1;
 				break;
 			case 't':
-				tflag = 1;
+				if (!strcmp(optarg, "sh") || !strcmp(optarg, "ksh"))
+					tflag = 0;
+				else if (!strcmp(optarg, "csh") || !strcmp(optarg, "tcsh"))
+					tflag = 1;
+				else
+				{
+					print_error("%s unknown shell syntax.\n", optarg);
+					exit(1);
+				}
 				break;
 			case 'd':
 				dflag = 1;
@@ -248,6 +324,17 @@ main(int argc, char **argv)
 
 	remote_argv[remote_argc++] = NULL; /* hostname */
 
+	if (tflag)
+	{
+		remote_argv[remote_argc] = (char *)malloc(sizeof(char) *
+			(strlen(dshpath) + strlen("setenv PATH ;") + 1) );
+		sprintf(remote_argv[remote_argc++], "setenv PATH %s;", dshpath);
+	} else {
+		remote_argv[remote_argc] = (char *)malloc(sizeof(char) *
+			(strlen(dshpath) + strlen("PATH=; export PATH;") + 1) );
+		sprintf(remote_argv[remote_argc++], "PATH=%s; export PATH;", dshpath);
+	}
+
 	for (i = 0; i < argc; i++)
 		remote_argv[remote_argc++] = strdup(argv[i]);
 
@@ -296,53 +383,12 @@ main(int argc, char **argv)
 	signal(SIGQUIT, &sig_handler);
 	signal(SIGABRT, &sig_handler);
 
-	queue_max_slots(fflag);
-	ptr = collective_get_next(NULL);
-	while (((ptr && !signaled) || queue_load()))
+	if (vflag)
 	{
-		time_t now = time(NULL);
-		if (queue_slots() == 0)
-		{
-			if (watchdog > now)
-			{
-				debug_msg("queue watchdog expired\n");
-				queue_set_watchdogs(watchdog);
-				watchdogs_set = 1;
-			}
-			if (!watchdog)
-			{
-				debug_msg("setting watchdog on queue\n");
-				queue_watchdog = now + watchdog;
-			}
-		}
-		if (queue_slots() && queue_watchdog)
-		{
-			debug_msg("clearing watchdog on queue\n");
-			queue_watchdog = 0;
-		}
-
-		while (queue_slots() > 0 && (!signaled && ptr))
-		{
-			char *name = ptr->name;
-			if (!strcmp(hn_method, "reliable"))
-				name = ptr->reliable;
-			queue_insert(name, remote_argc, remote_argv);
-			ptr = collective_get_next(ptr);
-		}
-		rc += queue_run(signaled);
-
-		if (!ptr && queue_load() && !watchdogs_set)
-		{
-			queue_set_watchdogs(watchdog);
-			watchdogs_set = 1;
-		}
+		rc = execute_command(1, hn_method, 10, 4, ping);
 	}
 
-	if (signaled > 0 && queue_load() > 0)
-	{
-		debug_msg("queued processes to be killed: %d\n",
-		    queue_load());
-	}
+	rc = execute_command(0, hn_method, dshtimeout, remote_argc, remote_argv);
 
 	return rc;
 }

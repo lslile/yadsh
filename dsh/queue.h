@@ -32,7 +32,7 @@
 
 typedef struct process
 {
-	char		*name;
+	struct member	*member;
 	pid_t		 pid;
 	int		 status,
 			 done,
@@ -41,7 +41,8 @@ typedef struct process
 			 pstderr,
 			 outcount,
 			 errcount;
-	char		*outbuffer,
+	char		*name,
+			*outbuffer,
 			*errbuffer;
 	struct process	*prev,
 			*next;
@@ -53,8 +54,8 @@ typedef struct process
 int queue_max_slots(int);
 int queue_slots(void);
 int queue_load(void);
-int queue_insert(char *, int, char **);
-int queue_run(int);
+int queue_insert(struct member *, char *, int, char **);
+int queue_run(int, int);
 int queue_set_watchdogs(time_t);
 
 #endif /* _queue_h */

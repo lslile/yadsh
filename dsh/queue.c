@@ -31,6 +31,7 @@
 RCSID("$Id$");
 
 #include "debug.h"
+#include "collective.h"
 #include "queue.h"
 #include "proc.h"
 
@@ -66,15 +67,15 @@ queue_max_slots(int set)
 }
 
 int
-queue_insert(char *name, int argc, char **argv)
+queue_insert(struct member *ptr, char *name, int argc, char **argv)
 {
 	struct process *new;
 	int		i;
 
-	if (!name)
+	if (!ptr || !name)
 		return 1;
 
-	debug_msg("queue_insert(%s)\n", name);
+	debug_msg("queue_insert(%s)\n", ptr->name);
 
 	new = (struct process *)malloc(sizeof(struct process));
 	memset(new, '\0', sizeof(struct process));
@@ -88,8 +89,9 @@ queue_insert(char *name, int argc, char **argv)
 		if (argv[i])
 			new->argv[i] = argv[i];
 		else
-			new->argv[i] = name;
+			new->argv[i] = ptr->name;
 	}
+	new->member = ptr;
 	new->name = name;
 
 	if (queue)
@@ -123,6 +125,11 @@ queue_delete(struct process *ptr)
 
 	debug_msg("queue_delete(%s)\n", ptr->name);
 
+	/* XXX I'm poking back into someone elses structure here,
+	 * I should have created an interface instead
+	 */
+	ptr->member->responding = ptr->status ? 0 : 1;
+
 	if (ptr == queue)
 		queue = ptr->next;
 	if (ptr->prev)
@@ -136,7 +143,7 @@ queue_delete(struct process *ptr)
 }
 
 int
-queue_run(int signal)
+queue_run(int quiet, int signal)
 {
 	struct process	*ptr = queue;
 	fd_set		 read_fds;
@@ -185,8 +192,11 @@ queue_run(int signal)
 		}
 		if (ptr->done && ptr->pstdout == -1 && ptr->pstderr == -1)
 		{
-			proc_output(stdout, ptr, &ptr->outbuffer, &ptr->outcount, 1);
-			proc_output(stderr, ptr, &ptr->errbuffer, &ptr->errcount, 1);
+			if (!quiet)
+			{
+				proc_output(stdout, ptr, &ptr->outbuffer, &ptr->outcount, 1);
+				proc_output(stderr, ptr, &ptr->errbuffer, &ptr->errcount, 1);
+			}
 			queue_delete(ptr);
 		}
 		ptr = next;
@@ -218,7 +228,10 @@ queue_run(int signal)
 				close(ptr->pstdout);
 				ptr->pstdout = -1;
 			} 
-			/*proc_output(stdout, ptr, &ptr->outbuffer, &ptr->outcount, 0);*/
+#if 0
+			if (!quiet)
+				proc_output(stdout, ptr, &ptr->outbuffer, &ptr->outcount, 0);
+#endif /* 0 */
 			if (ptr->watchdog)
 			{
 				debug_msg("queue_run() watchdog reset %d\n", ptr->pid);
@@ -237,7 +250,10 @@ queue_run(int signal)
 				close(ptr->pstderr);
 				ptr->pstderr = -1;
 			}
-			/*proc_output(stderr, ptr, &ptr->errbuffer, &ptr->errcount, 0);*/
+#if 0
+			if (!quiet)
+				proc_output(stderr, ptr, &ptr->errbuffer, &ptr->errcount, 0);
+#endif /* 0 */
 			if (ptr->watchdog)
 			{
 				debug_msg("queue_run() watchdog reset %d\n", ptr->pid);
