@@ -77,6 +77,37 @@ free_collective(void)
 }
 
 int
+collective_drop_member(struct member *ptr)
+{
+	struct member	*prev,
+			*next;
+
+	prev = ptr->prev;
+	next = ptr->next;
+
+	if (collective == ptr)
+		collective = next;
+
+	if (next)
+		next->prev = prev;
+	if (prev)
+		prev->next = next;
+
+	if (ptr->name)
+	{
+		free(ptr->name);
+		ptr->name = (char *)NULL;
+	}
+	if (ptr->reliable)
+	{
+		free(ptr->reliable);
+		ptr->reliable = (char *)NULL;
+	}
+	free(ptr);
+	return 0;
+}
+
+int
 collective_add_member(char *name)
 {
 	char 		*reliable;

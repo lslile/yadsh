@@ -130,7 +130,8 @@ queue_delete(struct process *ptr)
 	/* XXX I'm poking back into someone elses structure here,
 	 * I should have created an interface instead
 	 */
-	ptr->member->responding = (ptr->status && !ptr->signal) ? 0 : 1;
+	if (ptr->member->responding)
+		ptr->member->responding = (ptr->status && !ptr->signal) ? 0 : 1;
 
 	if (ptr == queue)
 		queue = ptr->next;
@@ -194,6 +195,7 @@ queue_run(int quiet, int signal)
 			ptr->watchdog = -1;
 			ptr->timer = 0;
 			kill(ptr->pid, SIGTERM);
+			ptr->member->responding = 0;
 		}
 #if 0
 		if (ptr->pstdin >= 0)

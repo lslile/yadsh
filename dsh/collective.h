@@ -41,6 +41,7 @@ typedef struct member
 
 int collective_parse(char *, char);
 int collective_add_member(char *);
+int collective_drop_member(struct member *);
 int collective_display(void);
 int collective_add_file(FILE *);
 int collective_add_stdin(FILE *);

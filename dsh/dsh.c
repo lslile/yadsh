@@ -165,7 +165,8 @@ execute_command(int quiet, char *hn_method, int timeout, int argc, char **argv)
 				queue_insert(ptr, name, argc, argv);
 			} else {
 				/* XXX Should delete from collective */
-				debug_msg("%s not responding, should delete from collective\n",
+				collective_drop_member(ptr);
+				debug_msg("%s not responding, dropped from collective\n",
 						ptr->name);
 			}
 			ptr = collective_get_next(ptr);
@@ -247,9 +248,9 @@ main(int argc, char **argv)
 	dshpath = getenv("DSHPATH") ?: DSHPATH_DFLT;
 	debug_msg("DSHPATH = %s\n", dshpath);
 
-	if (getenv("DSHTIMEOUT"))
-		dshtimeout = atoi(getenv("DSHTIMEOUT"));
-	debug_msg("DSHTIMEOUT = %d\n", dshtimeout);
+	if (getenv("DSH_TIMEOUT"))
+		dshtimeout = atoi(getenv("DSH_TIMEOUT"));
+	debug_msg("DSH_TIMEOUT = %d\n", dshtimeout);
 
 	if (getenv("DSH_COLLATE") != NULL)
 	{

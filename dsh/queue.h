@@ -56,6 +56,7 @@ int queue_max_slots(int);
 int queue_slots(void);
 int queue_load(void);
 int queue_insert(struct member *, char *, int, char **);
+int queue_delete(struct process *);
 int queue_run(int, int);
 int queue_set_watchdogs(time_t);
 
