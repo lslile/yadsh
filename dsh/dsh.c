@@ -28,6 +28,7 @@
  */
 
 #include "includes.h"
+
 RCSID("$Id$");
 
 #include "print.h"
@@ -48,6 +49,10 @@ RCSID("$Id$");
 #if !defined(SSH)
 #define SSH "/usr/bin/ssh"
 #endif /* !defined SSH */
+
+#if !defined(DSHPATH)
+#define DSHPATH "/usr/ucb:/bin:/usr/bin:."
+#endif /* !defined DSHPATH */
 
 #define MAX_FANOUT(x)	((x - 3) / 3)
 #define TIMEOUT		180
@@ -242,8 +247,7 @@ main(int argc, char **argv)
 	}
 	debug_msg("HN_METHOD = %s\n", hn_method);
 
-	/* XXX Default path from configure */
-	dshpath = getenv("DSHPATH") ?: "/usr/ucb:/bin:/usr/bin:.";
+	dshpath = getenv("DSHPATH") ?: DSHPATH;
 	debug_msg("DSHPATH = %s\n", dshpath);
 
 	if (getenv("DSHTIMEOUT"))
@@ -368,15 +372,18 @@ main(int argc, char **argv)
 
 	remote_argv[remote_argc++] = NULL; /* hostname */
 
-	if (tflag)
+	if (strlen(dshpath))
 	{
-		remote_argv[remote_argc] = (char *)malloc(sizeof(char) *
-			(strlen(dshpath) + strlen("setenv PATH ;") + 1) );
-		sprintf(remote_argv[remote_argc++], "setenv PATH %s;", dshpath);
-	} else {
-		remote_argv[remote_argc] = (char *)malloc(sizeof(char) *
-			(strlen(dshpath) + strlen("PATH=; export PATH;") + 1) );
-		sprintf(remote_argv[remote_argc++], "PATH=%s; export PATH;", dshpath);
+		if (tflag)
+		{
+			remote_argv[remote_argc] = (char *)malloc(sizeof(char) *
+				(strlen(dshpath) + strlen("setenv PATH ;") + 1) );
+			sprintf(remote_argv[remote_argc++], "setenv PATH %s;", dshpath);
+		} else {
+			remote_argv[remote_argc] = (char *)malloc(sizeof(char) *
+				(strlen(dshpath) + strlen("PATH=; export PATH;") + 1) );
+			sprintf(remote_argv[remote_argc++], "PATH=%s; export PATH;", dshpath);
+		}
 	}
 
 	for (i = 0; i < argc; i++)
