@@ -118,16 +118,23 @@ collective_add_member(char *name)
 int
 collective_parse(char *buffer, char separator)
 {
-	char	*tmp = strdup(buffer);
-	char	*ptr = tmp;
+	char	*tmp,
+		*ptr,
+		*s;
+
+	if (!buffer)
+		return 0;
+
+	tmp = strdup(buffer);
+	ptr = tmp;
 
 	while (ptr)
 	{
 		char *sep;
 		if ((sep = strchr(ptr, separator)))
 			*sep++ = '\0';
-		if (strlen(ptr))
-			collective_add_member(ptr);
+		if ((s = clean_string(ptr)) != NULL && *s != '#' && strlen(s))
+			collective_add_member(s);
 		ptr = sep;
 	}
 	return 0;
