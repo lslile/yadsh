@@ -128,7 +128,7 @@ queue_delete(struct process *ptr)
 	/* XXX I'm poking back into someone elses structure here,
 	 * I should have created an interface instead
 	 */
-	ptr->member->responding = ptr->status ? 0 : 1;
+	ptr->member->responding = (ptr->status && !ptr->signal) ? 0 : 1;
 
 	if (ptr == queue)
 		queue = ptr->next;

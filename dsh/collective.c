@@ -137,11 +137,21 @@ int
 collective_display(void)
 {
 	struct member	*ptr = collective;
+	int		 count = 0;
 
-	printf("working collective (%d):", collective_count);
 	while (ptr)
 	{
-		printf("%s%s", (ptr == collective ? " " : ", "), ptr->name);
+		if (cflag || ptr->responding)
+			count++;
+		ptr = ptr->next;
+	}
+
+	ptr = collective;
+	printf("working collective (%d):", count);
+	while (ptr)
+	{
+		if (cflag || ptr->responding)
+			printf("%s%s", (ptr == collective ? " " : ", "), ptr->name);
 		ptr = ptr->next;
 	}
 	printf("\nfanout: %d\n", fflag);

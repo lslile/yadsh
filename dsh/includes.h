@@ -56,7 +56,12 @@ static /**/const char *const rcsid[] = { (char *)rcsid, "\100(#)" msg }
 # include <netdb.h>
 #endif
 
+#include <libgen.h>
+
 #include <netinet/in.h>
 #include <unistd.h>
+
+#include <readline/readline.h>
+#include <readline/history.h>
 
 #endif /* _includes_h */

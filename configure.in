@@ -5,28 +5,35 @@ AC_INIT(dsh.c)
 
 dnl Checks for programs.
 AC_PROG_CC
-AC_CANONICAL_HOST
 AC_PROG_INSTALL
+AC_CANONICAL_HOST
 
 dnl Checks for libraries.
-dnl Replace `main' with a function in -lgen:
-AC_CHECK_LIB(gen, main)
 dnl Replace `main' with a function in -lnsl:
-AC_CHECK_LIB(nsl, main)
-dnl Replace `main' with a function in -lresolv:
-AC_CHECK_LIB(resolv, main)
-dnl Replace `main' with a function in -lsocket:
-AC_CHECK_LIB(socket, main)
+AC_SEARCH_LIBS(gethostbyname, nsl)
+AC_SEARCH_LIBS(tgetent, [readline ncurses curses termcap])
+AC_SEARCH_LIBS(readline, readline)
+AC_SEARCH_LIBS(basename, gen)
 
 # Check for some target-specific stuff
 case "$host" in
 *-*-linux*)
 	;;
-
 *-*-solaris*)
-	LIBS="$LIBS -lnsl -lsocket -lresolv -lgen"
+	;;
+*-*-irix*)
+	AC_PATH_PROGS([RSH], [rsh], , [/usr/bsd])
 	;;
 esac
+
+test -z "$RSH" && AC_PATH_PROG([RSH], [rsh], , [/usr/bin:$PATH])
+test -z "$SSH" && AC_PATH_PROG([SSH], [ssh], , [/usr/bin:$PATH])
+
+test -z "$RSH" && AC_MSG_ERROR([Sorry, couldn't find rsh])
+AC_SUBST(RSH)
+
+test -z "$SSH" && AC_MSG_WARN([Unable to locate ssh, you will have to use RCMD_PGM for ssh])
+AC_SUBST(SSH)
 
 dnl Checks for header files.
 AC_HEADER_STDC
@@ -42,7 +49,7 @@ dnl Checks for library functions.
 AC_FUNC_MMAP
 AC_TYPE_SIGNAL
 AC_FUNC_VPRINTF
-AC_CHECK_FUNCS(putenv select strdup strerror)
+AC_CHECK_FUNCS(unsetenv putenv select strdup strerror)
 
 AC_EXEEXT
 AC_OUTPUT(Makefile)

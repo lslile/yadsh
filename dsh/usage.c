@@ -31,12 +31,18 @@
 RCSID("$Id$");
 
 int
-usage(void)
+usage(char *program)
 {
-        printf("Usage: dsh [-q]\n");
-        printf("       dsh [-h]\n");
-        printf("       dsh [-i] [-v] [-c] [-t csh|sh] [-d] [-D] [-l login_name]\n");
+	char	*prog = strdup(program),
+		*name = basename(prog);
+
+        printf("Usage: %s [-q]\n", name);
+        printf("       %s [-h]\n", name);
+        printf("       %s [-i] [-v] [-c] [-t csh|sh] [-d] [-D] [-l login_name]\n", name);
         printf("           [-w {host_name|@netgroup[,...] | -} [-f fanout_value]\n");
        	printf("           [-o \"flags_and_parms\"] [-Y domain] [command]\n");
+
+	free(prog);
+
 	return 0;
 }

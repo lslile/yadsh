@@ -37,6 +37,14 @@ RCSID("$Id$");
 #include "collective.h"
 #include "proc.h"
 
+#if !defined(RSH)
+#define RSH "/usr/bin/rsh"
+#endif /* !defined RSH */
+
+#if !defined(SSH)
+#define SSH "/usr/bin/ssh"
+#endif /* !defined SSH */
+
 #define MAX_FANOUT(x)	((x - 3) / 3)
 #define TIMEOUT		180
 
@@ -66,7 +74,7 @@ char		*__ypdomain = NULL;
 char		**remote_argv = (char **)NULL;
 int		  remote_argc = 0;
 
-int usage(void);
+int usage(char *);
 
 void
 sig_handler(int signum)
@@ -89,6 +97,9 @@ execute_command(int quiet, char *hn_method, int timeout, int argc, char **argv)
 	int		 watchdog = timeout,
 			 watchdogs_set = 0,
 			 queue_watchdog = 0;
+
+	signaled = 0;
+	sigcount = 0;
 
 	queue_max_slots(fflag);
 	ptr = collective_get_next(NULL);
@@ -162,7 +173,8 @@ main(int argc, char **argv)
 			*dsh_remote_cmd,
 			*rcmd_pgm,
 			*hn_method,
-			*dshpath;
+			*dshpath,
+			*prompt;
 
 	char		*ping[] = { "ping", "-w", "4", NULL, NULL };
 
@@ -172,15 +184,20 @@ main(int argc, char **argv)
 
 	int		 rc = 0;
 
+	if (geteuid() == 0)
+		prompt = "dsh# ";
+	else
+		prompt = "dsh> ";
+
 	if (getenv("DSH_DEBUG") != NULL)
 		debug = 1;
 	debug_msg("DSH_DEBUG\n");
 
 	dsh_remote_cmd = getenv("DSH_REMOTE_CMD") ?: "rsh";
 	if (!strcmp(dsh_remote_cmd, "rsh"))
-		rcmd_pgm = getenv("RCMD_PGM") ?: "/usr/bin/rsh";
+		rcmd_pgm = getenv("RCMD_PGM") ?: RSH;
 	else if (!strcmp(dsh_remote_cmd, "secrshell"))
-		rcmd_pgm = getenv("RCMD_PGM") ?: "/usr/bin/ssh";
+		rcmd_pgm = getenv("RCMD_PGM") ?: SSH;
 	else
 	{
 		print_error("unknown DSH_REMOTE_CMD %s\n", dsh_remote_cmd);
@@ -240,7 +257,7 @@ main(int argc, char **argv)
 				qflag = 1;
 				break;
 			case 'h':
-				exit(usage());
+				exit(usage(argv[0]));
 				break;
 			case 'i':
 				iflag = 1;
@@ -299,7 +316,7 @@ main(int argc, char **argv)
 				__ypdomain = Yflag;
 				break;
 			default:
-				exit(!usage());
+				exit(!usage(argv[0]));
 				break;
 		}
 	}
@@ -376,19 +393,50 @@ main(int argc, char **argv)
 	if (qflag)
 		return collective_display();
 
-	if (!argc)
-		exit(usage());
-
 	signal(SIGINT,  &sig_handler);
 	signal(SIGQUIT, &sig_handler);
 	signal(SIGABRT, &sig_handler);
 
 	if (vflag)
 	{
-		rc = execute_command(1, hn_method, 10, 4, ping);
+		execute_command(1, hn_method, 10, 4, ping);
 	}
 
-	rc = execute_command(0, hn_method, dshtimeout, remote_argc, remote_argv);
+	if (argc == 0)
+	{
+		char *line;
+		int   done = 0;
+		while (!done)
+		{
+			if (iflag)
+				collective_display();
+
+			signal(SIGINT,  SIG_DFL);
+			signal(SIGQUIT, SIG_DFL);
+			signal(SIGABRT, SIG_DFL);
+			
+			line = readline(prompt);
+			
+			signal(SIGINT,  &sig_handler);
+			signal(SIGQUIT, &sig_handler);
+			signal(SIGABRT, &sig_handler);
+			
+			if (line && strlen(line))
+			{
+				add_history(line);
+				remote_argv[remote_argc - 1] = strdup(line);
+				rc = execute_command(0, hn_method, dshtimeout, remote_argc, remote_argv);
+			}
+			if (line == NULL)
+				done = 1;
+		}
+	} else {
+		rc = execute_command(0, hn_method, dshtimeout, remote_argc, remote_argv);
+	}
+
+	signal(SIGINT,  SIG_DFL);
+	signal(SIGQUIT, SIG_DFL);
+	signal(SIGABRT, SIG_DFL);
 
 	return rc;
 }
