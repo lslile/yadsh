@@ -43,6 +43,7 @@ usage(char *program)
        	printf("           [-o \"flags_and_parms\"] [-Y domain] [command]\n");
 
 	free(prog);
+	prog = (char *)NULL;
 
 	return 0;
 }

@@ -45,6 +45,7 @@ int collective_display(void);
 int collective_add_file(FILE *);
 int collective_add_stdin(FILE *);
 struct member *collective_get_next(struct member *);
+void free_collective(void);
 
 
 #endif /* _collective_h */

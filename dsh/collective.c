@@ -50,6 +50,32 @@ collective_get_next(struct member *ptr)
 	return (struct member *)NULL;
 }
 
+void
+free_collective(void)
+{
+	struct member	*ptr = collective,
+			*next = (struct member *)NULL;
+
+	while (ptr)
+	{
+		next = ptr->next;
+
+		if (ptr->name)
+		{
+			free(ptr->name);
+			ptr->name = (char *)NULL;
+		}
+		if (ptr->reliable)
+		{
+			free(ptr->reliable);
+			ptr->reliable = (char *)NULL;
+		}
+		free(ptr);
+		ptr = next;
+	}
+	collective = (struct member *)NULL;
+}
+
 int
 collective_add_member(char *name)
 {
@@ -100,6 +126,7 @@ collective_add_member(char *name)
 			{
 				debug_msg("collective_add_member - dropping duplicate\n");
 				free(member);
+				member = (struct member *)NULL;
 				return 0;
 			}
 			prev = ptr;
@@ -137,6 +164,8 @@ collective_parse(char *buffer, char separator)
 			collective_add_member(s);
 		ptr = sep;
 	}
+	free(tmp);
+	tmp = (char *)NULL;
 	return 0;
 }
 
@@ -217,6 +246,7 @@ collective_add_stdin(FILE *file)
 			{
 				memcpy(tmpbuffer, wcoll, sizeof(char) * count);
 				free(wcoll);
+				wcoll = (char *)NULL;
 			}
 			wcoll = tmpbuffer;
 			memcpy(wcoll + count, readbuffer, sizeof(char) * tmp);
@@ -228,6 +258,7 @@ collective_add_stdin(FILE *file)
 	collective_parse(wcoll, '\n');
 
 	free(wcoll);
+	wcoll = (char *)NULL;
 
 	return 0;
 }

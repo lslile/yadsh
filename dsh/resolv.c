@@ -70,6 +70,7 @@ resolv_netgroup(char *name)
 		while(*ptr)
 		{
 			free(*ptr);
+			*ptr = NULL;
 			ptr++;
 		}
 		free(netgroup);
@@ -90,6 +91,7 @@ resolv_netgroup(char *name)
 		{
 			memcpy(tmp, netgroup, sizeof(char *) * i);
 			free(netgroup);
+			netgroup = (char **)NULL;
 		}
 		netgroup = tmp;
 		netgroup[i++] = strdup(host);
@@ -98,6 +100,7 @@ resolv_netgroup(char *name)
 	endnetgrent();
 
 	free(group);
+	group = (char *)NULL;
 
 	return netgroup;
 

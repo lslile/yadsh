@@ -102,7 +102,7 @@ clean_string(char *string)
 		*t;
 
 	while (s && isspace(*s))
-		*s++;
+		s++;
 
 	if (*s == '#')
 		return (char *)NULL;
@@ -252,7 +252,10 @@ main(int argc, char **argv)
 	debug_msg("DSHTIMEOUT = %d\n", dshtimeout);
 
 	if (getenv("DSH_COLLATE") != NULL)
+	{
 		collate = 1;
+		debug_msg("DSH_COLLATE\n");
+	}
 
 #if defined(RLIMIT_NOFILE)
 	if (getrlimit(RLIMIT_NOFILE, &rl) == -1)
@@ -386,10 +389,14 @@ main(int argc, char **argv)
 		}
 	}
 
-	for (i = 0; i < argc; i++)
-		remote_argv[remote_argc++] = strdup(argv[i]);
+	if (!argc)
+		remote_argv[remote_argc++] = NULL;
+	else
+		for (i = 0; i < argc; i++)
+			remote_argv[remote_argc++] = strdup(argv[i]);
 
 	remote_argv[remote_argc] = NULL; /* Last argv entry! */
+
 
 	debug_msg("remote_argv = ");
 	for (i = 0; i <= remote_argc; i++)
@@ -440,7 +447,6 @@ main(int argc, char **argv)
 	{
 #if defined(HAVE_READLINE)
 		char *line;
-		int   done = 0;
 		while (1)
 		{
 			char *s;
@@ -491,6 +497,38 @@ main(int argc, char **argv)
 	signal(SIGINT,  SIG_DFL);
 	signal(SIGQUIT, SIG_DFL);
 	signal(SIGABRT, SIG_DFL);
+
+	for (i = 0; i < remote_argc; i++)
+		if (remote_argv[i])
+		{
+			free(remote_argv[i]);
+			remote_argv[i] = (char *)NULL;
+		}
+	free(remote_argv);
+	remote_argv = (char **)NULL;
+
+	free_collective();
+
+	if (lflag)
+	{
+		free(lflag);
+		lflag = (char *)NULL;
+	}
+	if (wflag)
+	{
+		free(wflag);
+		wflag = (char *)NULL;
+	}
+	if (oflag)
+	{
+		free(oflag);
+		oflag = (char *)NULL;
+	}
+	if (Yflag)
+	{
+		free(Yflag);
+		Yflag = (char *)NULL;
+	}
 
 	return rc;
 }

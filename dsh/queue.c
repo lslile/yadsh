@@ -144,7 +144,13 @@ queue_delete(struct process *ptr)
 		close(ptr->pstdout);
 	if (ptr->pstderr >= 0)
 		close(ptr->pstderr);
+	if (ptr->argv)
+	{
+		free(ptr->argv);
+		ptr->argv = (char **)NULL;
+	}
 	free(ptr);
+	ptr = (struct process *)NULL;
 	queue_count--;
 
 	return 0;
@@ -253,7 +259,7 @@ queue_run(int quiet, int signal)
 				close(ptr->pstdout);
 				ptr->pstdout = -1;
 			} 
-			if (!quiet)
+			if (!quiet && !collate)
 				proc_output(stdout, ptr, &ptr->outbuffer, &ptr->outcount, 0);
 			if (ptr->watchdog)
 			{
@@ -262,7 +268,7 @@ queue_run(int quiet, int signal)
 
 			}
 		} else {
-			if (!quiet && ptr->pstdout >= 0 && ptr->outcount)
+			if (!quiet && !collate && ptr->pstdout >= 0 && ptr->outcount)
 				proc_output(stdout, ptr, &ptr->outbuffer, &ptr->outcount, 1);
 		}
 
@@ -277,7 +283,7 @@ queue_run(int quiet, int signal)
 				close(ptr->pstderr);
 				ptr->pstderr = -1;
 			}
-			if (!quiet)
+			if (!quiet && !collate)
 				proc_output(stderr, ptr, &ptr->errbuffer, &ptr->errcount, 0);
 			if (ptr->watchdog)
 			{
@@ -286,7 +292,7 @@ queue_run(int quiet, int signal)
 			}
 
 		} else {
-			if (!quiet && ptr->pstderr >=0 && ptr->errcount)
+			if (!quiet && !collate && ptr->pstderr >=0 && ptr->errcount)
 				proc_output(stderr, ptr, &ptr->errbuffer, &ptr->errcount, 1);
 		}
 		ptr = ptr->next;

@@ -45,6 +45,50 @@ proc_sig_child(int signo)
 }
 
 int
+new_proc_reap(struct process *queue)
+{
+	sigset_t	 newmask,
+			 oldmask;
+	pid_t	 	 pid = 0;
+	int 	 	 status,
+			 rc = 0;
+	struct process	*ptr;
+
+	if (!queue)
+		return 0;
+
+	sigemptyset(&newmask);
+	sigaddset(&newmask, SIGCHLD);
+	if (sigprocmask(SIG_BLOCK, &newmask, &oldmask) < 0)
+		perror("sigprocmask");
+
+	ptr = queue;
+	while(ptr)
+	{
+		if (ptr->pid && ptr->pstdout == -1 && ptr->pstderr == -1 && !ptr->done)
+		{
+			if ((pid = waitpid(ptr->pid, &status, WNOHANG)) != 0)
+			{
+				debug_msg("process %d: exited %d\n",
+				    pid, WEXITSTATUS(status));
+				ptr->done = 1;
+				ptr->status = status;
+				if (status)
+					rc++;
+			} 
+		}
+		ptr = ptr->next;
+	}
+
+	sigchld = 0;
+
+	if (sigprocmask(SIG_SETMASK, &oldmask, NULL) < 0)
+		perror("sigprocmask");
+
+	return rc;
+}
+
+int
 proc_reap(struct process *queue)
 {
 	sigset_t	 newmask,
@@ -99,23 +143,30 @@ proc_output(FILE *file, struct process *proc, char **buffer, int *length, int fl
 		*out = (char *)NULL;
 	int	count = 0;
 
-	debug_msg("proc_output(%s, %s, flush=%d)\n",
-			(file == stdout ? "stdout" : "stderr"), proc->name, flush);
+	debug_msg("proc_output(%s, %s, %p, %d, flush=%d)\n",
+			(file == stdout ? "stdout" : "stderr"),
+			proc->name, buffer, *length, flush);
 
 	if (*length)
 	{
-		out = strdup(*buffer);
+		out = malloc(sizeof(char) * (*length + 1));
+		memset(out, '\0', sizeof(char) * (*length + 1));
+		memcpy(out, *buffer, *length);
 		tmp = out;
 		do
 		{
 			char *sep;
-			if ((sep = strchr(tmp, '\n')))
+			if ((sep = memchr(tmp, '\n', sizeof(char) * (*length - count))))
 			{
+				/*debug_msg("proc_output(): memchr(%p, %s, %d) = %p\n",
+					tmp, "\\n", *length - count, sep);*/
 				*sep++ = '\0';
 				count = sep - out;
 				if (strlen(tmp) != 1 || *tmp != '\r')
 					print_host(file, "%-16s: %s\n", proc->name, tmp);
 			} else {
+				/*debug_msg("proc_output(): memchr(%p, %s, %d) = %p\n",
+					tmp, "\\n", *length - count, sep);*/
 				if (flush && count < *length)
 				{
 					print_host(file, "%-16s: %s\n", proc->name, tmp);
@@ -123,8 +174,12 @@ proc_output(FILE *file, struct process *proc, char **buffer, int *length, int fl
 				}
 				*length -= count;
 				free(*buffer);
+				*buffer = (char *)NULL;
 				if (*length)
-					*buffer = strdup(tmp);
+				{
+					*buffer = malloc(sizeof(char) * *length);
+					memcpy(*buffer, tmp, *length);
+				}
 			}
 			tmp = sep;
 		} while (tmp);
@@ -145,6 +200,7 @@ proc_output(FILE *file, struct process *proc, char **buffer, int *length, int fl
 	}
 
 	free(out);
+	out = (char *)NULL;
 
 	return count;
 }
@@ -163,12 +219,13 @@ proc_read(struct process *proc, int fd, char **buffer, int *length)
 
 		debug_msg("proc_read() got %d bytes\n", count);
 
-		tmp = (char *)malloc(sizeof(char) * (*length + count + 1));
-		memset(tmp, '\0', sizeof(char) * (*length + count + 1));
-		if (*length && *buffer)
+		tmp = (char *)malloc(sizeof(char) * (*length + count));
+		memset(tmp, '\0', sizeof(char) * (*length + count));
+		if (*length)
 		{
-			memcpy(tmp, *buffer, sizeof(char) * (*length));
+			memcpy(tmp, *buffer, *length);
 			free(*buffer);
+			*buffer = (char *)NULL;
 		}
 		*buffer = tmp;
 		memcpy(*buffer + (*length), readbuf, sizeof(char) * count);
