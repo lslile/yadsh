@@ -30,6 +30,9 @@
 #ifndef _includes_h
 #define _includes_h
 
+#define RCSID(msg) \
+static /**/const char *const rcsid[] = { (char *)rcsid, "\100(#)" msg }
+
 #include <sys/mman.h>
 #include <sys/resource.h>
 #include <sys/socket.h>
