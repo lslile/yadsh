@@ -45,50 +45,6 @@ proc_sig_child(int signo)
 }
 
 int
-new_proc_reap(struct process *queue)
-{
-	sigset_t	 newmask,
-			 oldmask;
-	pid_t	 	 pid = 0;
-	int 	 	 status,
-			 rc = 0;
-	struct process	*ptr;
-
-	if (!queue)
-		return 0;
-
-	sigemptyset(&newmask);
-	sigaddset(&newmask, SIGCHLD);
-	if (sigprocmask(SIG_BLOCK, &newmask, &oldmask) < 0)
-		perror("sigprocmask");
-
-	ptr = queue;
-	while(ptr)
-	{
-		if (ptr->pid && ptr->pstdout == -1 && ptr->pstderr == -1 && !ptr->done)
-		{
-			if ((pid = waitpid(ptr->pid, &status, WNOHANG)) != 0)
-			{
-				debug_msg("process %d: exited %d\n",
-				    pid, WEXITSTATUS(status));
-				ptr->done = 1;
-				ptr->status = status;
-				if (status)
-					rc++;
-			} 
-		}
-		ptr = ptr->next;
-	}
-
-	sigchld = 0;
-
-	if (sigprocmask(SIG_SETMASK, &oldmask, NULL) < 0)
-		perror("sigprocmask");
-
-	return rc;
-}
-
-int
 proc_reap(struct process *queue)
 {
 	sigset_t	 newmask,
@@ -158,15 +114,11 @@ proc_output(FILE *file, struct process *proc, char **buffer, int *length, int fl
 			char *sep;
 			if ((sep = memchr(tmp, '\n', sizeof(char) * (*length - count))))
 			{
-				/*debug_msg("proc_output(): memchr(%p, %s, %d) = %p\n",
-					tmp, "\\n", *length - count, sep);*/
 				*sep++ = '\0';
 				count = sep - out;
 				if (strlen(tmp) != 1 || *tmp != '\r')
 					print_host(file, "%-16s: %s\n", proc->name, tmp);
 			} else {
-				/*debug_msg("proc_output(): memchr(%p, %s, %d) = %p\n",
-					tmp, "\\n", *length - count, sep);*/
 				if (flush && count < *length)
 				{
 					print_host(file, "%-16s: %s\n", proc->name, tmp);
