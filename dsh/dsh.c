@@ -66,7 +66,8 @@ char		*lflag = (char *)NULL,
 		*wflag = (char *)NULL,
 		*oflag = (char *)NULL;
 
-int		 signaled = 0;
+int		 signaled = 0,
+		 sigcount = 0;
 
 unsigned int	 debug = 0;
 
@@ -80,8 +81,15 @@ int usage(void);
 void
 sig_handler(int signum)
 {
-	signaled = signum;
 	debug_msg("sig_handler(%d)\n", signum);
+	signaled = signum;
+	sigcount++;
+	if (sigcount > 5)
+	{
+		fprintf(stderr, "Something must be hung, exiting...\n");
+		fprintf(stdout, "Something must be hung, exiting...\n");
+		exit(1);
+	}
 }
 
 int
@@ -200,6 +208,9 @@ main(int argc, char **argv)
 	argc -= optind;
 	argv += optind;
 
+	if (!argc)
+		exit(usage());
+
 	remote_argv = (char **)malloc(sizeof(char *) * (argc + remote_argc_pad));
 	bzero(remote_argv, sizeof(char *) * (argc + remote_argc_pad));
 	remote_argv[remote_argc++] = strdup(rcmd_pgm);
@@ -264,15 +275,14 @@ main(int argc, char **argv)
 
 	queue_max_slots(fflag);
 	ptr = collective_get_next(NULL);
-	while ((ptr || queue_load()) && !signaled)
+	while (((ptr && !signaled) || queue_load()))
 	{
-		while ((queue_slots() > 0 && ptr) && !signaled)
+		while (queue_slots() > 0 && (!signaled && ptr))
 		{
 			queue_insert(ptr->name, remote_argc, remote_argv);
 			ptr = collective_get_next(ptr);
 		}
-		if (!signaled)
-			queue_run();
+		queue_run(signaled);
 	}
 
 	if (signaled > 0 && queue_load() > 0)

@@ -36,6 +36,7 @@ typedef struct process
 	pid_t		 pid;
 	int		 status,
 			 done,
+			 signal,
 			 stdout,
 			 stderr,
 			 outcount,
@@ -51,6 +52,6 @@ int queue_max_slots(int);
 int queue_slots(void);
 int queue_load(void);
 int queue_insert(char *, int, char **);
-int queue_run(void);
+int queue_run(int);
 
 #endif /* _queue_h */

@@ -145,20 +145,25 @@ queue_delete(struct process *ptr)
 }
 
 int
-queue_run(void)
+queue_run(int signal)
 {
 	struct process	*ptr = queue;
 	fd_set		 read_fds;
 	struct timeval	 tv;
 	int		 hi_fd = 0;
 
-	debug_msg("queue_run() [load %d / slots %d]\n",
-	    queue_count, queue_slots());
+	debug_msg("queue_run(%d) [load %d / slots %d]\n",
+	    signal, queue_count, queue_slots());
 
 	FD_ZERO(&read_fds);
 	while (ptr)
 	{
 		struct process *next = ptr->next;
+		if (signal && ptr->signal != signal)
+		{
+			ptr->signal = signal;
+			kill(ptr->pid, signal);
+		}
 		if (ptr->stdout >= 0)
 		{
 			FD_SET(ptr->stdout, &read_fds);
@@ -203,7 +208,7 @@ queue_run(void)
 				close(ptr->stdout);
 				ptr->stdout = -1;
 			} 
-			proc_output(stdout, ptr, &ptr->outbuffer, &ptr->outcount, 0);
+			/*proc_output(stdout, ptr, &ptr->outbuffer, &ptr->outcount, 0);*/
 		}
 		if (ptr->stderr >= 0 && FD_ISSET(ptr->stderr, &read_fds))
 		{
@@ -216,7 +221,7 @@ queue_run(void)
 				close(ptr->stderr);
 				ptr->stderr = -1;
 			}
-			proc_output(stderr, ptr, &ptr->errbuffer, &ptr->errcount, 0);
+			/*proc_output(stderr, ptr, &ptr->errbuffer, &ptr->errcount, 0);*/
 		}
 		ptr = ptr->next;
 	}

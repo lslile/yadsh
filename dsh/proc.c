@@ -100,33 +100,56 @@ proc_reap(struct process *queue)
 int
 proc_output(FILE *file, struct process *proc, char **buffer, int *length, int flush)
 {
-	char	*tmp,
-		*out;
+	char	*tmp = (char *)NULL,
+		*out = (char *)NULL;
 	int	count = 0;
 
-	debug_msg("proc_output()\n");
+	debug_msg("proc_output(%s, %s, flush=%d)\n",
+			(file == stdout ? "stdout" : "stderr"), proc->name, flush);
 
-	if (!*buffer || !*length)
-		return 0;
-
-	out = strdup(*buffer);
-	tmp = out;
-	do
+	if (*length)
 	{
-		char *sep;
-		if ((sep = strchr(tmp, '\n')))
+		out = strdup(*buffer);
+		tmp = out;
+		do
 		{
-			*sep++ = '\0';
-			count = sep - out;
-			fprintf(file, "%-16s: %s\n", proc->name, tmp);
-		} else {
-			*length -= count;
-			free(*buffer);
-			if (*length)
-				*buffer = strdup(tmp);
-		}
-		tmp = sep;
-	} while (tmp);
+			char *sep;
+			if ((sep = strchr(tmp, '\n')))
+			{
+				*sep++ = '\0';
+				count = sep - out;
+				if (*tmp == '\r')
+					fprintf(file, "tmp is CR!\n");
+				fprintf(file, "%-16s%c (%d) %s}\n", proc->name,
+						((file == stdout) ? ':' : '|'),
+					       strlen(tmp), tmp);
+			} else {
+				if (flush && count < *length)
+				{
+					fprintf(file, "%-16s%c %s\n", proc->name,
+							((file == stdout) ? ':' : '|'), tmp);
+					count += strlen(tmp);
+				}
+				*length -= count;
+				free(*buffer);
+				if (*length)
+					*buffer = strdup(tmp);
+			}
+			tmp = sep;
+		} while (tmp);
+	}
+
+	if (flush && proc->status && file == stderr)
+	{
+		if (WIFEXITED(proc->status))
+			fprintf(file, "%-16s: exit %d\n", proc->name, WIFEXITED(proc->status));
+		if (WIFSIGNALED(proc->status))
+			fprintf(file, "%-16s: killed (%d)\n", proc->name, WTERMSIG(proc->status));
+		if (WIFSTOPPED(proc->status))
+			fprintf(file, "%-16s: killed (%d)\n", proc->name, WSTOPSIG(proc->status));
+
+
+	}
 
 	free(out);
 
@@ -140,8 +163,6 @@ proc_read(struct process *proc, int fd, char **buffer, int *length)
 	int	 count;
 
 	bzero(&readbuf, sizeof(readbuf));
-
-	/*debug_msg("buffer (%d):\n%s\n", *length, *buffer);*/
 
 	if ((count = read(fd, &readbuf, sizeof(readbuf))) > 0)
 	{
@@ -162,8 +183,6 @@ proc_read(struct process *proc, int fd, char **buffer, int *length)
 	} else if (count < 0) {
 		perror("proc_read() read");
 	}
-
-	/*debug_msg("buffer (%d):\n%s\n", *length, *buffer);*/
 
 	return count;
 }
