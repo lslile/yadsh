@@ -10,7 +10,6 @@ Copyright: BSD
 Group: System Environment/Shells
 Source: ftp://ftp.nowhere.com/pub/dsh/dsh-%{ver}.tar.gz
 BuildRoot: /var/tmp/dsh-%{PACKAGE_VERSION}-root
-Obsoletes: dsh
 Packager: Larry Lile <lile@stdio.com>
 Prefix: /usr
 
