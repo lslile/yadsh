@@ -51,7 +51,8 @@ unsigned int	 qflag = 0,
 
 char		*lflag = (char *)NULL,
 		*wflag = (char *)NULL,
-		*oflag = (char *)NULL;
+		*oflag = (char *)NULL,
+		*Yflag = (char *)NULL;
 
 int		 signaled = 0,
 		 sigcount = 0;
@@ -59,6 +60,8 @@ int		 signaled = 0,
 unsigned int	 debug = 0;
 
 extern int 	 errno;
+
+char		*__ypdomain = NULL;
 
 char		**remote_argv = (char **)NULL;
 int		  remote_argc = 0;
@@ -214,6 +217,10 @@ main(int argc, char **argv)
 			case 'o':
 				oflag = strdup(optarg);
 				remote_argc_pad++;
+				break;
+			case 'Y':
+				Yflag = strdup(optarg);
+				__ypdomain = Yflag;
 				break;
 			default:
 				exit(!usage());

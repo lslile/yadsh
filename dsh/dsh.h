@@ -41,7 +41,8 @@ extern unsigned int	 qflag,
 
 extern char		*lflag,
 			*wflag,
-			*oflag;
+			*oflag,
+			*Yflag;
 	
 extern unsigned int	 debug;
 
