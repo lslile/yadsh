@@ -37,6 +37,7 @@ static char rcsid[] = "$Id$";
 #include <unistd.h>
 #include <string.h>
 #include <signal.h>
+#include <time.h>
 #include <sys/time.h>
 #include <sys/resource.h>
 #include <sys/socket.h>
@@ -51,7 +52,8 @@ static char rcsid[] = "$Id$";
 #include "collective.h"
 #include "proc.h"
 
-#define MAX_FANOUT(x) ((x - 3) / 3)
+#define MAX_FANOUT(x)	((x - 3) / 3)
+#define TIMEOUT		180
 
 unsigned int	 qflag = 0,
 		 iflag = 0,
@@ -86,7 +88,7 @@ sig_handler(int signum)
 	sigcount++;
 	if (sigcount > 5)
 	{
-		fprintf(stderr, "Something must be hung, exiting...\n");
+		print_error("Something must be hung, exiting...\n");
 		exit(1);
 	}
 }
@@ -98,7 +100,10 @@ main(int argc, char **argv)
 	extern char	*optarg;
 	int		 ch,
 			 i,
-			 remote_argc_pad = 4;
+			 remote_argc_pad = 4,
+			 watchdog = TIMEOUT,
+			 watchdogs_set = 0,
+			 queue_watchdog = 0;
 	char		*wcoll = (char *)NULL,
 			*fanout,
 			*dsh_remote_cmd,
@@ -121,7 +126,7 @@ main(int argc, char **argv)
 		rcmd_pgm = getenv("RCMD_PGM") ?: "/usr/bin/ssh";
 	else
 	{
-		fprintf(stderr, "unknown DSH_REMOTE_CMD %s\n", dsh_remote_cmd);
+		print_error("unknown DSH_REMOTE_CMD %s\n", dsh_remote_cmd);
 		exit(1);
 	}
 	debug_msg("DSH_REMOTE_CMD = %s\n", dsh_remote_cmd);
@@ -131,13 +136,17 @@ main(int argc, char **argv)
 	if (strcmp(hn_method, "initial_hostname") &&
 	    strcmp(hn_method, "reliable"))
 	{
-		fprintf(stderr, "unknown HN_METHOD %s\n", hn_method);
+		print_error("unknown HN_METHOD %s\n", hn_method);
 		exit(1);
 	}
 	debug_msg("HN_METHOD = %s\n", hn_method);
 
 	dshpath = getenv("DSHPATH") ?: "/usr/ucb:/bin:/usr/bin:.";
 	debug_msg("DSHPATH = %s\n", dshpath);
+
+	if (getenv("DSHTIMEOUT"))
+		watchdog = atoi(getenv("DSHTIMEOUT"));
+	debug_msg("DSHTIMEOUT = %d\n", watchdog);
 
 	if (getrlimit(RLIMIT_NOFILE, &rl) == -1)
 	{
@@ -187,7 +196,7 @@ main(int argc, char **argv)
 				dflag = 1;
 				if (Dflag)
 				{
-					fprintf(stderr, "-D and -d cannot be used at the same time.\n");
+					print_error("-D and -d cannot be used at the same time.\n");
 					exit(1);
 				}
 				remote_argc_pad++;
@@ -196,7 +205,7 @@ main(int argc, char **argv)
 				Dflag = 1;
 				if (dflag)
 				{
-					fprintf(stderr, "-D and -d cannot be used at the same time.\n");
+					print_error("-D and -d cannot be used at the same time.\n");
 					exit(1);
 				}
 				remote_argc_pad++;
@@ -254,7 +263,7 @@ main(int argc, char **argv)
 	
 	if (!wflag && ((wcoll = getenv("WCOLL")) == NULL))
 	{
-		fprintf(stderr, "working collective not set.\n");
+		print_error("working collective not set.\n");
 		exit(1);
 	}
 
@@ -293,6 +302,27 @@ main(int argc, char **argv)
 	ptr = collective_get_next(NULL);
 	while (((ptr && !signaled) || queue_load()))
 	{
+		time_t now = time(NULL);
+		if (queue_slots() == 0)
+		{
+			if (watchdog > now)
+			{
+				debug_msg("queue watchdog expired\n");
+				queue_set_watchdogs(watchdog);
+				watchdogs_set = 1;
+			}
+			if (!watchdog)
+			{
+				debug_msg("setting watchdog on queue\n");
+				queue_watchdog = now + watchdog;
+			}
+		}
+		if (queue_slots() && queue_watchdog)
+		{
+			debug_msg("clearing watchdog on queue\n");
+			queue_watchdog = 0;
+		}
+
 		while (queue_slots() > 0 && (!signaled && ptr))
 		{
 			char *name = ptr->name;
@@ -301,7 +331,13 @@ main(int argc, char **argv)
 			queue_insert(name, remote_argc, remote_argv);
 			ptr = collective_get_next(ptr);
 		}
-		rc = queue_run(signaled);
+		rc += queue_run(signaled);
+
+		if (!ptr && queue_load() && !watchdogs_set)
+		{
+			queue_set_watchdogs(watchdog);
+			watchdogs_set = 1;
+		}
 	}
 
 	if (signaled > 0 && queue_load() > 0)

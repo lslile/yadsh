@@ -30,8 +30,9 @@
 #ifndef _print_h
 #define _print_h
 
+int print_error(char *, ...);
+int print_host(FILE *, char *, ...);
 int print_host_error(char *, char *);
-
 
 #endif /* _print_h */
 

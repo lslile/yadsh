@@ -46,6 +46,8 @@ typedef struct process
 	struct process	*prev,
 			*next;
 	char		**argv;
+	time_t		 watchdog,
+			 timer;
 } process_t;
 
 int queue_max_slots(int);
@@ -53,5 +55,6 @@ int queue_slots(void);
 int queue_load(void);
 int queue_insert(char *, int, char **);
 int queue_run(int);
+int queue_set_watchdogs(time_t);
 
 #endif /* _queue_h */

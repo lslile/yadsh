@@ -38,6 +38,7 @@ static char rcsid[] = "$Id$";
 #include <signal.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <time.h>
 
 #include "debug.h"
 #include "queue.h"
@@ -152,9 +153,17 @@ queue_run(int signal)
 	struct timeval	 tv;
 	int		 hi_fd = 0,
 			 rc = 0;
+	time_t		 now = time(NULL);
 
-	debug_msg("queue_run(%d) [load %d / slots %d]\n",
-	    signal, queue_count, queue_slots());
+	static int	 load = 0,
+			 slots = 0;
+
+	if (load != queue_count || slots != queue_slots())
+		debug_msg("\nqueue_run(%d) [load %d / slots %d]\n",
+		    signal, queue_count, queue_slots());
+
+	load = queue_count;
+	slots = queue_slots();
 
 	FD_ZERO(&read_fds);
 	while (ptr)
@@ -165,6 +174,15 @@ queue_run(int signal)
 			ptr->signal = signal;
 			kill(ptr->pid, signal);
 		}
+		if (ptr->watchdog && now > ptr->timer)
+		{
+			debug_msg("queue_run() watchdog killed %d\n", ptr->pid);
+			ptr->signal = SIGTERM;
+			ptr->watchdog = -1;
+			ptr->timer = 0;
+			kill(ptr->pid, SIGTERM);
+		}
+
 		if (ptr->stdout >= 0)
 		{
 			FD_SET(ptr->stdout, &read_fds);
@@ -198,6 +216,7 @@ queue_run(int signal)
 	while (ptr)
 	{
 		int count;
+
 		if (ptr->stdout >= 0 && FD_ISSET(ptr->stdout, &read_fds))
 		{
 			debug_msg("proc %d: stdout ready\n", ptr->pid);
@@ -210,6 +229,12 @@ queue_run(int signal)
 				ptr->stdout = -1;
 			} 
 			/*proc_output(stdout, ptr, &ptr->outbuffer, &ptr->outcount, 0);*/
+			if (ptr->watchdog)
+			{
+				debug_msg("queue_run() watchdog reset %d\n", ptr->pid);
+				ptr->timer = now + ptr->watchdog;
+
+			}
 		}
 		if (ptr->stderr >= 0 && FD_ISSET(ptr->stderr, &read_fds))
 		{
@@ -223,6 +248,12 @@ queue_run(int signal)
 				ptr->stderr = -1;
 			}
 			/*proc_output(stderr, ptr, &ptr->errbuffer, &ptr->errcount, 0);*/
+			if (ptr->watchdog)
+			{
+				debug_msg("queue_run() watchdog reset %d\n", ptr->pid);
+				ptr->timer = now + ptr->watchdog;
+			}
+
 		}
 		ptr = ptr->next;
 	}
@@ -230,4 +261,23 @@ queue_run(int signal)
 	rc = proc_reap(queue);
 
 	return rc;
+}
+
+int
+queue_set_watchdogs(time_t timeout)
+{
+	struct process	*ptr = queue;
+	time_t		 now = time(NULL);
+
+	debug_msg("queue_set_watchdogs(%d)\n", timeout);
+
+	while (ptr)
+	{
+		debug_msg("queue_set_watchdogs(%d) - pid %d\n", timeout, ptr->pid);
+		ptr->watchdog = timeout;
+		ptr->timer = now + timeout;
+		ptr = ptr->next;
+	}
+
+	return 0;
 }

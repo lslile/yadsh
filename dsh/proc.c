@@ -43,6 +43,7 @@ static char rcsid[] = "$Id$";
 
 #include "dsh.h"
 #include "queue.h"
+#include "print.h"
 #include "debug.h"
 
 int	sigchld = -1;
@@ -124,11 +125,11 @@ proc_output(FILE *file, struct process *proc, char **buffer, int *length, int fl
 				*sep++ = '\0';
 				count = sep - out;
 				if (strlen(tmp) != 1 || *tmp != '\r')
-					fprintf(file, "%-16s: %s\n", proc->name, tmp);
+					print_host(file, "%-16s: %s\n", proc->name, tmp);
 			} else {
 				if (flush && count < *length)
 				{
-					fprintf(file, "%-16s: %s\n", proc->name, tmp);
+					print_host(file, "%-16s: %s\n", proc->name, tmp);
 					count += strlen(tmp);
 				}
 				*length -= count;
@@ -142,12 +143,14 @@ proc_output(FILE *file, struct process *proc, char **buffer, int *length, int fl
 
 	if (flush && proc->status && file == stderr)
 	{
+		if (proc->watchdog == -1)
+			print_host(file, "%-16s: killed by watchdog timer\n", proc->name);
 		if (WIFEXITED(proc->status))
-			fprintf(file, "%-16s: exit %d\n", proc->name, WIFEXITED(proc->status));
+			print_host(file, "%-16s: exit %d\n", proc->name, WIFEXITED(proc->status));
 		if (WIFSIGNALED(proc->status))
-			fprintf(file, "%-16s: killed (%d)\n", proc->name, WTERMSIG(proc->status));
+			print_host(file, "%-16s: killed (%d)\n", proc->name, WTERMSIG(proc->status));
 		if (WIFSTOPPED(proc->status))
-			fprintf(file, "%-16s: killed (%d)\n", proc->name, WSTOPSIG(proc->status));
+			print_host(file, "%-16s: killed (%d)\n", proc->name, WSTOPSIG(proc->status));
 
 
 	}
@@ -210,7 +213,7 @@ proc_spawn(struct process *proc)
 
 	if ((pid = fork()) < 0)
 	{
-		fprintf(stderr, "fork error!\n");
+		print_error("fork error!\n");
 		exit(1);
 	}
 
@@ -228,16 +231,16 @@ proc_spawn(struct process *proc)
 		if (!((fdflags = fcntl(proc->stdout, F_GETFL, 0)) < 0))
 		{
 			if ((fcntl(proc->stdout, F_SETFL, fdflags | O_NDELAY)) < 0)
-				perror("proc_spawn() fcntl");
+				perror("proc_spawn() fcntl stdout");
 		} else {
-			perror("proc_spawn() fcntl");
+			perror("proc_spawn() fcntl stdout");
 		}
 		if (!((fdflags = fcntl(proc->stderr, F_GETFL, 0)) < 0))
 		{
 			if ((fcntl(proc->stderr, F_SETFL, fdflags | O_NDELAY)) < 0)
-				perror("proc_spawn() fcntl");
+				perror("proc_spawn() fcntl stderr");
 		} else {
-			perror("proc_spawn() fcntl");
+			perror("proc_spawn() fcntl stderr");
 		}
 		debug_msg("proc_spawn(): ");
 		while (*tmp)
@@ -246,7 +249,15 @@ proc_spawn(struct process *proc)
 
 		return pid;
 	} else {
-		/* Child XXX Don't close stdin, it causes problems for SSH */
+		/* Child */
+		
+		/*
+		 * XXX Convince SSH that I am not going to talk to it, under any circumstances!
+		 *      na-na-na-na i'm not talking to you na-na-na-na
+		 */
+		unsetenv("DISPLAY");
+		setsid();
+
 		if ((dup2(stdoutpipe[1], fileno(stdout)) == -1) ||
 		    (dup2(stderrpipe[1], fileno(stderr)) == -1))
 		{
@@ -261,7 +272,7 @@ proc_spawn(struct process *proc)
 		/* exec sub process XXX */
 		execvp(proc->argv[0], proc->argv);
 
-		fprintf(stderr, "dsh: subprocess failed to exec: %s\n", strerror(errno));
+		print_error("dsh: subprocess failed to exec: %s\n", strerror(errno));
 
 		exit(1); /* Failed to exec ! */
 	}

@@ -33,7 +33,35 @@ static char rcsid[] = "$Id$";
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdarg.h>
 #include <string.h>
+
+#include "dsh.h"
+
+int
+print_error(char *fmt, ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+	vfprintf(stderr, fmt, ap);
+	va_end(ap);
+	return 0;
+}
+
+int
+print_host(FILE *file, char *fmt, ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+	if (debug && file == stderr)
+		vfprintf(stdout, fmt, ap);
+	else
+		vfprintf(file, fmt, ap);
+	va_end(ap);
+	return 0;
+}
 
 int
 print_host_error(char *name, char *buffer)
@@ -56,7 +84,7 @@ print_host_error(char *name, char *buffer)
 		{
 			*sep++ = '\0';
 			count = sep - out;
-			fprintf(stdout, "%-16s: %s\n", name, ptr);
+			print_host(stdout, "%-16s: %s\n", name, ptr);
 		}
 		ptr = sep;
 	} while (ptr);
