@@ -41,6 +41,10 @@ RCSID("$Id$");
 #define RSH "/usr/bin/rsh"
 #endif /* !defined RSH */
 
+#if !defined(KRSH)
+#define KRSH RSH
+#endif /* !defined KRSH */
+
 #if !defined(SSH)
 #define SSH "/usr/bin/ssh"
 #endif /* !defined SSH */
@@ -87,6 +91,29 @@ sig_handler(int signum)
 		print_error("Something must be hung, exiting...\n");
 		exit(1);
 	}
+}
+
+char *
+clean_string(char *string)
+{
+	char	*s = string,
+		*t;
+
+	while (s && isspace(*s))
+		*s++;
+
+	if (*s == '#')
+		return (char *)NULL;
+
+	if (!s)
+		return s;
+
+	t = s + strlen(s) - 1;
+	while (t > s && isspace(*t))
+		t--;
+	*++t = '\0';
+
+	return s;
 }
 
 int
@@ -404,10 +431,12 @@ main(int argc, char **argv)
 
 	if (argc == 0)
 	{
+#if defined(HAVE_READLINE)
 		char *line;
 		int   done = 0;
-		while (!done)
+		while (1)
 		{
+			char *s;
 			if (iflag)
 				collective_display();
 
@@ -415,21 +444,39 @@ main(int argc, char **argv)
 			signal(SIGQUIT, SIG_DFL);
 			signal(SIGABRT, SIG_DFL);
 			
-			line = readline(prompt);
-			
+			if ((line = readline(prompt)) == NULL)
+				break;
+
+			if ((s = clean_string(line)) == NULL)
+				continue;
+
 			signal(SIGINT,  &sig_handler);
 			signal(SIGQUIT, &sig_handler);
 			signal(SIGABRT, &sig_handler);
 			
-			if (line && strlen(line))
+			if (s && strlen(s))
 			{
-				add_history(line);
-				remote_argv[remote_argc - 1] = strdup(line);
-				rc = execute_command(0, hn_method, dshtimeout, remote_argc, remote_argv);
+				if (!strcmp(s, "exit"))
+					break;
+#if defined(HAVE_HISTORY)
+				add_history(s);
+#endif /* HAVE_HISTORY */
+				if (*s == '!')
+				{
+					printf("local command: %s\n", s);
+					continue;
+				} else {
+					remote_argv[remote_argc - 1] = strdup(s);
+					rc = execute_command(0, hn_method, dshtimeout,
+							remote_argc, remote_argv);
+				}
 			}
-			if (line == NULL)
-				done = 1;
 		}
+		if (line == (char *)NULL)
+			printf("\n");
+#else
+		printf("readline not availble\n");
+#endif /* HAVE_READLINE */
 	} else {
 		rc = execute_command(0, hn_method, dshtimeout, remote_argc, remote_argv);
 	}
