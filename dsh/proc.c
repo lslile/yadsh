@@ -244,7 +244,7 @@ proc_spawn(struct process *proc)
 		 * XXX Convince SSH that I am not going to talk to it, under any circumstances!
 		 *      na-na-na-na i'm not talking to you na-na-na-na
 		 */
-		unsetenv("DISPLAY");
+		putenv("DISPLAY=");
 		setsid();
 
 		if ((dup2(stdoutpipe[1], fileno(stdout)) == -1) ||
