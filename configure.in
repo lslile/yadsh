@@ -2,43 +2,134 @@
 
 dnl Process this file with autoconf to produce a configure script.
 AC_INIT(dsh.c)
+AM_CONFIG_HEADER(config.h)
+AM_INIT_AUTOMAKE(dsh, 1.16)
 
 dnl Checks for programs.
+AC_PROG_AWK
 AC_PROG_CC
 AC_PROG_INSTALL
-AC_CANONICAL_HOST
+AC_PROG_LN_S
+AC_ARG_PROGRAM
 
 dnl Checks for libraries.
-dnl Replace `main' with a function in -lnsl:
+AC_SEARCH_LIBS(inet_aton, resolv)
 AC_SEARCH_LIBS(gethostbyname, nsl)
 AC_SEARCH_LIBS(tgetent, [readline ncurses curses termcap])
 AC_SEARCH_LIBS(readline, readline)
 AC_SEARCH_LIBS(basename, gen)
 
-# Check for some target-specific stuff
-case "$host" in
-*-*-linux*)
-	;;
-*-*-solaris*)
-	;;
-*-*-irix*)
-	AC_PATH_PROGS([RSH], [rsh], , [/usr/bsd])
-	;;
-esac
 
-test -z "$RSH" && AC_PATH_PROG([RSH], [rsh], , [/usr/bin:$PATH])
-test -z "$SSH" && AC_PATH_PROG([SSH], [ssh], , [/usr/bin:$PATH])
+dnl
+dnl begin --with-rsh
+dnl
 
-test -z "$RSH" && AC_MSG_ERROR([Sorry, couldn't find rsh])
-AC_SUBST(RSH)
+# What remote shell transport should dsh default to using?
+AC_ARG_WITH(
+  [rsh],
+  [  --with-rsh		  Specify the remote shell program (default rsh)], ,
+  [with_rsh="rsh ssh"])
 
-test -z "$SSH" && AC_MSG_WARN([Unable to locate ssh, you will have to use RCMD_PGM for ssh])
-AC_SUBST(SSH)
+if test no = "$with_rsh"; then
+  AC_MSG_WARN([Failed to find usable remote shell. Using 'rsh'.])
+  with_rsh=rsh
+elif test yes = "$with_rsh"; then
+  # Make --with-rsh mean the same thing as --with-rsh=rsh
+  with_rsh=rsh
+fi
+
+if echo $with_rsh |grep ^/ >/dev/null; then
+  # If $with_rsh is an absolute path, issue a warning if the executable
+  # doesn't exist or isn't usable, but then trust the user and use it
+  # regardless
+  with_default_rsh=$with_rsh
+  AC_MSG_CHECKING([for a remote shell])
+  if ! test -f $with_rsh \
+      || ! test -x $with_rsh; then
+    # warn the user that they may encounter problems
+    AC_MSG_WARN([$with_rsh is not a path to an executable file])
+  fi
+else
+  # Search for a remote shell
+  dnl AC_CHECK_PROGS([with_default_rsh], [$with_rsh], "rsh")
+  AC_PATH_PROGS([with_default_rsh], [$with_rsh], , [$PATH])
+fi
+
+AC_DEFINE_UNQUOTED(
+  [RSH_DFLT], ["$with_default_rsh"],
+  [The default remote shell to use.])
+RSH_DFLT=$with_default_rsh
+AC_SUBST(RSH_DFLT)
+dnl
+dnl end --with-rsh
+dnl
+
+dnl
+dnl begin --with-ssh
+dnl
+
+# What remote secure shell transport should dsh default to using?
+AC_ARG_WITH(
+  [ssh],
+  [  --with-ssh		  Specify the remote secure shell program (default ssh)], ,
+  [with_ssh="ssh"])
+
+if test no = "$with_ssh"; then
+  AC_MSG_WARN([Failed to find usable remote shell. Using 'ssh'.])
+  with_ssh=ssh
+elif test yes = "$with_ssh"; then
+  # Make --with-ssh mean the same thing as --with-ssh=ssh
+  with_ssh=ssh
+fi
+
+if echo $with_ssh |grep ^/ >/dev/null; then
+  # If $with_ssh is an absolute path, issue a warning if the executable
+  # doesn't exist or isn't usable, but then trust the user and use it
+  # regardless
+  with_default_ssh=$with_ssh
+  AC_MSG_CHECKING([for a remote shell])
+  if ! test -f $with_ssh \
+      || ! test -x $with_ssh; then
+    # warn the user that they may encounter problems
+    AC_MSG_WARN([$with_ssh is not a path to an executable file])
+  fi
+else
+  # Search for a remote shell
+  dnl AC_CHECK_PROGS([with_default_ssh], [$with_ssh], "ssh")
+  AC_PATH_PROGS([with_default_ssh], [$with_ssh], , [$PATH])
+fi
+
+AC_DEFINE_UNQUOTED(
+  [SSH_DFLT], ["$with_default_ssh"],
+  [The default secure shell to use.])
+SSH_DFLT=$with_default_ssh
+AC_SUBST(SSH_DFLT)
+dnl
+dnl end --with-ssh
+dnl
+
+# Is your rsh kerberized?
+AC_ARG_ENABLE(kerberized-rsh, [  --with-kerberized-rsh])
+if test "$enable_kerberized_rsh" = "yes"; then
+	AC_DEFINE(KERBERIZED_RSH)
+fi
+
+# What is the default for DSHPATH?
+AC_ARG_WITH(dshpath,
+	[  --with-dshpath=PATH	  The default value for DSHPATH],
+	[with_dshpath=$withval],
+	[with_dshpath=''])
+if test "$with_dshpath" != "yes" && test -z "$with_dshpath"; then
+	with_dshpath=''
+else
+	AC_MSG_RESULT([Setting default DSHPATH to $with_dshpath])
+	AC_DEFINE_UNQUOTED(DSHPATH_DFLT,"$with_dshpath", Define to specify the default DSHPATH.)
+fi
 
 dnl Checks for header files.
 AC_HEADER_STDC
 AC_HEADER_SYS_WAIT
-AC_CHECK_HEADERS(fcntl.h sys/time.h unistd.h netdb.h)
+AC_CHECK_HEADERS(fcntl.h sys/time.h unistd.h netdb.h readline/readline.h readline/history.h)
 
 dnl Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST
@@ -49,7 +140,7 @@ dnl Checks for library functions.
 AC_FUNC_MMAP
 AC_TYPE_SIGNAL
 AC_FUNC_VPRINTF
-AC_CHECK_FUNCS(unsetenv putenv select strdup strerror)
+AC_CHECK_FUNCS(unsetenv putenv select strdup strerror readline add_history)
 
 AC_EXEEXT
-AC_OUTPUT(Makefile)
+AC_OUTPUT(dsh.spec Makefile)
