@@ -27,11 +27,8 @@
  * $Id$
  */
 
-#ifndef lint
-static char rcsid[] = "$Id$";
-#endif /* not lint */
-
 #include "includes.h"
+RCSID("$Id$");
 
 #include "print.h"
 #include "debug.h"
