@@ -49,6 +49,8 @@ extern unsigned int	 debug;
 extern char 		**remote_argv;
 extern int 		  remote_argc;
 
+char *clean_string(char *);
+
 #define TMPBUFSIZE	4096
 
 #endif /* _dsh_h */
