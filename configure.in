@@ -3,7 +3,7 @@
 dnl Process this file with autoconf to produce a configure script.
 AC_INIT(dsh.c)
 AM_CONFIG_HEADER(config.h)
-AM_INIT_AUTOMAKE(dsh, 1.16)
+AM_INIT_AUTOMAKE(dsh, 1.18)
 
 dnl Checks for programs.
 AC_PROG_AWK
