@@ -38,21 +38,17 @@ RCSID("$Id$");
 #include "collective.h"
 #include "proc.h"
 
-#if !defined(RSH)
-#define RSH "/usr/bin/rsh"
-#endif /* !defined RSH */
+#if !defined(RSH_DFLT)
+#define RSH_DFLT "/usr/bin/rsh"
+#endif /* !defined RSH_DFLT */
 
-#if !defined(KRSH)
-#define KRSH RSH
-#endif /* !defined KRSH */
+#if !defined(SSH_DFLT)
+#define SSH_DFLT "/usr/bin/ssh"
+#endif /* !defined SSH_DFLT */
 
-#if !defined(SSH)
-#define SSH "/usr/bin/ssh"
-#endif /* !defined SSH */
-
-#if !defined(DSHPATH)
-#define DSHPATH "/usr/ucb:/bin:/usr/bin:."
-#endif /* !defined DSHPATH */
+#if !defined(DSHPATH_DFLT)
+#define DSHPATH_DFLT "/usr/ucb:/bin:/usr/bin:."
+#endif /* !defined DSHPATH_DFLT */
 
 #define MAX_FANOUT(x)	((x - 3) / 3)
 #define TIMEOUT		180
@@ -74,7 +70,8 @@ char		*lflag = (char *)NULL,
 int		 signaled = 0,
 		 sigcount = 0;
 
-unsigned int	 debug = 0;
+unsigned int	 debug = 0,
+		 collate = 0;
 
 extern int 	 errno;
 
@@ -227,9 +224,9 @@ main(int argc, char **argv)
 
 	dsh_remote_cmd = getenv("DSH_REMOTE_CMD") ?: "rsh";
 	if (!strcmp(dsh_remote_cmd, "rsh"))
-		rcmd_pgm = getenv("RCMD_PGM") ?: RSH;
+		rcmd_pgm = getenv("RCMD_PGM") ?: RSH_DFLT;
 	else if (!strcmp(dsh_remote_cmd, "secrshell"))
-		rcmd_pgm = getenv("RCMD_PGM") ?: SSH;
+		rcmd_pgm = getenv("RCMD_PGM") ?: SSH_DFLT;
 	else
 	{
 		print_error("unknown DSH_REMOTE_CMD %s\n", dsh_remote_cmd);
@@ -247,12 +244,15 @@ main(int argc, char **argv)
 	}
 	debug_msg("HN_METHOD = %s\n", hn_method);
 
-	dshpath = getenv("DSHPATH") ?: DSHPATH;
+	dshpath = getenv("DSHPATH") ?: DSHPATH_DFLT;
 	debug_msg("DSHPATH = %s\n", dshpath);
 
 	if (getenv("DSHTIMEOUT"))
 		dshtimeout = atoi(getenv("DSHTIMEOUT"));
 	debug_msg("DSHTIMEOUT = %d\n", dshtimeout);
+
+	if (getenv("DSH_COLLATE") != NULL)
+		collate = 1;
 
 #if defined(RLIMIT_NOFILE)
 	if (getrlimit(RLIMIT_NOFILE, &rl) == -1)
@@ -465,9 +465,9 @@ main(int argc, char **argv)
 			{
 				if (!strcmp(s, "exit"))
 					break;
-#if defined(HAVE_HISTORY)
+#if defined(HAVE_ADD_HISTORY)
 				add_history(s);
-#endif /* HAVE_HISTORY */
+#endif /* HAVE_ADD_HISTORY */
 				if (*s == '!')
 				{
 					printf("local command: %s\n", s);
