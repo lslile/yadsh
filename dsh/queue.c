@@ -30,6 +30,7 @@
 #include "includes.h"
 RCSID("$Id$");
 
+#include "dsh.h"
 #include "debug.h"
 #include "collective.h"
 #include "queue.h"
@@ -252,7 +253,7 @@ queue_run(int quiet, int signal)
 				close(ptr->pstdout);
 				ptr->pstdout = -1;
 			} 
-			if (!quiet)
+			if (!quiet && !collate)
 				proc_output(stdout, ptr, &ptr->outbuffer, &ptr->outcount, 0);
 			if (ptr->watchdog)
 			{
@@ -276,7 +277,7 @@ queue_run(int quiet, int signal)
 				close(ptr->pstderr);
 				ptr->pstderr = -1;
 			}
-			if (!quiet)
+			if (!quiet && !collate)
 				proc_output(stderr, ptr, &ptr->errbuffer, &ptr->errcount, 0);
 			if (ptr->watchdog)
 			{

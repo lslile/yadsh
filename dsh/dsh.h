@@ -44,7 +44,8 @@ extern char		*lflag,
 			*oflag,
 			*Yflag;
 	
-extern unsigned int	 debug;
+extern unsigned int	 debug,
+			 collate;
 
 extern char 		**remote_argv;
 extern int 		  remote_argc;
