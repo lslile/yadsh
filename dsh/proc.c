@@ -33,6 +33,7 @@ static char rcsid[] = "$Id$";
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <errno.h>
 #include <unistd.h>
 #include <string.h>
 #include <fcntl.h>
@@ -40,6 +41,7 @@ static char rcsid[] = "$Id$";
 #include <sys/types.h>
 #include <sys/wait.h>
 
+#include "dsh.h"
 #include "queue.h"
 #include "debug.h"
 
@@ -49,32 +51,37 @@ void
 proc_sig_child(int signo)
 {
 	sigchld++;
-	debug_msg("child exited (count=%d)\n", sigchld);
+	debug_msg("child exited (sigchld=%d)\n", sigchld);
 }
 
 void
 proc_reap(struct process *queue)
 {
-	if (sigchld < 1)
+	sigset_t	newmask,
+			oldmask;
+	pid_t	 	 pid = 0;
+	int 	 	 status;
+	struct process	*ptr;
+
+	if (!queue || !sigchld)
 		return;
 
-	while(sigchld)
+	sigemptyset(&newmask);
+	sigaddset(&newmask, SIGCHLD);
+	if (sigprocmask(SIG_BLOCK, &newmask, &oldmask) < 0)
+		perror("sigprocmask");
+
+	debug_msg("proc_reap() sigchld = %d\n", sigchld);
+
+	while ((pid = waitpid(-1, &status, WNOHANG)) > 0)
 	{
-		pid_t	 	 pid;
-		int 	 	 status;
-		struct process	*ptr = queue;
-		if ((pid = wait(&status)) == -1)
-		{
-			perror("proc_reap() wait");
-			return;
-		}
-		debug_msg("process %d: exited %d\n",
-		    pid, WEXITSTATUS(status));
-		sigchld--;
+		ptr = queue;
 		while(ptr)
 		{
 			if (ptr->pid == pid)
 			{
+				debug_msg("process %d: exited %d\n",
+				    pid, WEXITSTATUS(status));
 				ptr->done = 1;
 				ptr->status = status;
 				ptr = (struct process *)NULL;
@@ -83,6 +90,11 @@ proc_reap(struct process *queue)
 			}
 		}
 	}
+
+	sigchld = 0;
+
+	if (sigprocmask(SIG_SETMASK, &oldmask, NULL) < 0)
+		perror("sigprocmask");
 }
 
 int
@@ -107,21 +119,16 @@ proc_output(FILE *file, struct process *proc, char **buffer, int *length, int fl
 			*sep++ = '\0';
 			count = sep - out;
 			fprintf(file, "%-16s: %s\n", proc->name, tmp);
+		} else {
+			*length -= count;
+			free(*buffer);
+			if (*length)
+				*buffer = strdup(tmp);
 		}
 		tmp = sep;
 	} while (tmp);
 
 	free(out);
-
-	if (count)
-	{
-		tmp = (char *)malloc(sizeof(char) * (*length - count + 1));
-		bzero(tmp, sizeof(char) * (*length - count + 1));
-		bcopy(*buffer + count, tmp, sizeof(char *) * (*length - count));
-		free(*buffer);
-		*buffer = tmp;
-		*length -= count;
-	}
 
 	return count;
 }
@@ -129,31 +136,34 @@ proc_output(FILE *file, struct process *proc, char **buffer, int *length, int fl
 int
 proc_read(struct process *proc, int fd, char **buffer, int *length)
 {
-	char	 readbuf[1024];
+	char	 readbuf[TMPBUFSIZE];
 	int	 count;
 
 	bzero(&readbuf, sizeof(readbuf));
+
+	/*debug_msg("buffer (%d):\n%s\n", *length, *buffer);*/
+
 	if ((count = read(fd, &readbuf, sizeof(readbuf))) > 0)
 	{
 		char *tmp;
 
-		/*debug_msg("proc_read() got %d bytes: %s\n", count, readbuf);*/
+		debug_msg("proc_read() got %d bytes\n", count);
 
 		tmp = (char *)malloc(sizeof(char) * (*length + count + 1));
 		bzero(tmp, sizeof(char) * (*length + count + 1));
-		if (*buffer)
+		if (*length && *buffer)
 		{
-			bcopy(*buffer, tmp, sizeof(char) * *length);
+			bcopy(*buffer, tmp, sizeof(char) * (*length));
 			free(*buffer);
 		}
 		*buffer = tmp;
-		bcopy(readbuf, *buffer + *length, sizeof(char) * count);
+		bcopy(readbuf, *buffer + (*length), sizeof(char) * count);
 		*length += count;
 	} else if (count < 0) {
 		perror("proc_read() read");
 	}
 
-	debug_msg("buffer (%d): %s\n", *length, *buffer);
+	/*debug_msg("buffer (%d):\n%s\n", *length, *buffer);*/
 
 	return count;
 }
@@ -187,6 +197,7 @@ proc_spawn(struct process *proc)
 	if (pid > 0)
 	{
 		int fdflags;
+		char **tmp = proc->argv;
 		/* Parent */
 		proc->stdout = stdoutpipe[0];
 		close(stdoutpipe[1]);
@@ -208,11 +219,14 @@ proc_spawn(struct process *proc)
 		} else {
 			perror("proc_spawn() fcntl");
 		}
+		debug_msg("proc_spawn(): ");
+		while (*tmp)
+			debug_msg("%s ", *tmp++);
+		debug_msg("\n");
 
 		return pid;
 	} else {
-		/* Child */
-		fclose(stdin);
+		/* Child XXX Don't close stdin, it causes problems for SSH */
 		if ((dup2(stdoutpipe[1], fileno(stdout)) == -1) ||
 		    (dup2(stderrpipe[1], fileno(stderr)) == -1))
 		{
@@ -225,7 +239,9 @@ proc_spawn(struct process *proc)
 		close(stderrpipe[1]);
 
 		/* exec sub process XXX */
-		execl("/bin/netstat", "/bin/netstat", "-a", NULL);
+		execvp(proc->argv[0], proc->argv);
+
+		fprintf(stderr, "dsh: subprocess failed to exec: %s\n", strerror(errno));
 
 		exit(1); /* Failed to exec ! */
 	}

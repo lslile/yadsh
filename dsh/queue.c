@@ -33,7 +33,9 @@ static char rcsid[] = "$Id$";
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <errno.h>
 #include <string.h>
+#include <signal.h>
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -73,9 +75,10 @@ queue_max_slots(int set)
 }
 
 int
-queue_insert(char *name)
+queue_insert(char *name, int argc, char **argv)
 {
 	struct process *new;
+	int		i;
 
 	if (!name)
 		return 1;
@@ -87,7 +90,15 @@ queue_insert(char *name)
 	new->status = -1;
 	new->stdout = -1;
 	new->stderr = -1;
-
+	new->argv = (char **)malloc(sizeof(char *) * (argc + 1));
+	bzero(new->argv, sizeof(char *) * (argc + 1));
+	for (i = 0; i < argc; i++)
+	{
+		if (argv[i])
+			new->argv[i] = argv[i];
+		else
+			new->argv[i] = name;
+	}
 	new->name = name;
 
 	if (queue)
@@ -142,7 +153,7 @@ queue_run(void)
 	int		 hi_fd = 0;
 
 	debug_msg("queue_run() [load %d / slots %d]\n",
-	    queue_count, queue_slot_count);
+	    queue_count, queue_slots());
 
 	FD_ZERO(&read_fds);
 	while (ptr)
@@ -160,8 +171,8 @@ queue_run(void)
 		}
 		if (ptr->done && ptr->stdout == -1 && ptr->stderr == -1)
 		{
-			proc_output(stdout, ptr, &ptr->outbuffer, &ptr->outcount, 0);
-			proc_output(stdout, ptr, &ptr->outbuffer, &ptr->outcount, 0);
+			proc_output(stdout, ptr, &ptr->outbuffer, &ptr->outcount, 1);
+			proc_output(stderr, ptr, &ptr->errbuffer, &ptr->errcount, 1);
 			queue_delete(ptr);
 		}
 		ptr = next;
@@ -172,8 +183,9 @@ queue_run(void)
 	tv.tv_usec = 100;
 	if (select(hi_fd, &read_fds, NULL, NULL, &tv) == -1)
 	{
-		perror("select");
-		exit(1);
+		if (errno != EINTR)
+			perror("queue_run() select");
+		return 0;
 	}
 
 	ptr = queue;

@@ -45,4 +45,9 @@ extern char		*lflag,
 	
 extern unsigned int	 debug;
 
+extern char 		**remote_argv;
+extern int 		  remote_argc;
+
+#define TMPBUFSIZE	4096
+
 #endif /* _dsh_h */

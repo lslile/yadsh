@@ -44,12 +44,13 @@ typedef struct process
 			*errbuffer;
 	struct process	*prev,
 			*next;
+	char		**argv;
 } process_t;
 
 int queue_max_slots(int);
 int queue_slots(void);
 int queue_load(void);
-int queue_insert(char *);
+int queue_insert(char *, int, char **);
 int queue_run(void);
 
 #endif /* _queue_h */

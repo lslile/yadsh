@@ -72,6 +72,9 @@ unsigned int	 debug = 0;
 
 extern int 	 errno;
 
+char		**remote_argv = (char **)NULL;
+int		  remote_argc = 0;
+
 int usage(void);
 
 void
@@ -88,7 +91,6 @@ main(int argc, char **argv)
 	extern char	*optarg;
 	int		 ch,
 			 i,
-			 remote_argc = 0,
 			 remote_argc_pad = 4;
 	char		*wcoll = (char *)NULL,
 			*fanout,
@@ -97,16 +99,15 @@ main(int argc, char **argv)
 			*hn_method;
 	struct member	*ptr;
 	struct rlimit	 rl;
-	char		**remote_argv = (char **)NULL;
 
 	if (getenv("DSH_DEBUG") != NULL)
 		debug = 1;
 
 	dsh_remote_cmd	= getenv("DSH_REMOTE_CMD") ?: "rsh";
 	if (!strcmp(dsh_remote_cmd, "rsh"))
-		rcmd_pgm	= getenv("RCMD_PGM") ?: "/bin/rsh";
+		rcmd_pgm	= getenv("RCMD_PGM") ?: "/usr/bin/rsh";
 	else if (!strcmp(dsh_remote_cmd, "secrshell"))
-		rcmd_pgm	= getenv("RCMD_PGM") ?: "/bin/ssh";
+		rcmd_pgm	= getenv("RCMD_PGM") ?: "/usr/bin/ssh";
 	else
 	{
 		fprintf(stderr, "unknown DSH_REMOTE_CMD %s\n", dsh_remote_cmd);
@@ -218,7 +219,8 @@ main(int argc, char **argv)
 
 	for (i = 0; i < argc; i++)
 		remote_argv[remote_argc++] = strdup(argv[i]);
-	remote_argv[remote_argc++] = NULL;
+
+	remote_argv[remote_argc] = NULL; /* Last argv entry! */
 
 	debug_msg("remote_argv = ");
 	for (i = 0; i < remote_argc; i++)
@@ -266,9 +268,8 @@ main(int argc, char **argv)
 	{
 		while ((queue_slots() > 0 && ptr) && !signaled)
 		{
-			queue_insert(ptr->name);
+			queue_insert(ptr->name, remote_argc, remote_argv);
 			ptr = collective_get_next(ptr);
-			sleep(1);
 		}
 		if (!signaled)
 			queue_run();
