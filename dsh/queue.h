@@ -30,4 +30,26 @@
 #ifndef _queue_h
 #define _queue_h
 
+typedef struct process
+{
+	char		*name;
+	pid_t		 pid;
+	int		 status,
+			 done,
+			 stdout,
+			 stderr,
+			 outcount,
+			 errcount;
+	char		*outbuffer,
+			*errbuffer;
+	struct process	*prev,
+			*next;
+} process_t;
+
+int queue_max_slots(int);
+int queue_slots(void);
+int queue_load(void);
+int queue_insert(char *);
+int queue_run(void);
+
 #endif /* _queue_h */

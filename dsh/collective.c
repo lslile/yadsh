@@ -45,36 +45,19 @@ static char rcsid[] = "$Id$";
 #include "resolv.h"
 #include "collective.h"
 
-typedef struct member
-{
-	char		*name,
-			*reliable;
-	struct member	*prev,
-			*next;
-} member_t;
-
 struct member	*collective = (struct member *)NULL;
 
 int		 collective_count = 0;
 
-int
-collective_parse(char *buffer, char separator)
+struct member *
+collective_get_next(struct member *ptr)
 {
-	char	*tmp = strdup(buffer);
-	char	*ptr = tmp;
-
-	while (ptr)
-	{
-		char *sep;
-		if ((sep = strchr(ptr, separator)))
-			*sep++ = '\0';
-		if (strlen(ptr))
-			collective_add_member(ptr);
-		ptr = sep;
-	}
-	return 0;
+	if (ptr == (struct member *)NULL)
+		return collective;
+	if (ptr)
+		return ptr->next;
+	return (struct member *)NULL;
 }
-
 
 int
 collective_add_member(char *name)
@@ -114,13 +97,15 @@ collective_add_member(char *name)
 		}
 	}
 
-	if (collective) {
+	if (collective)
+	{
 		struct member	*ptr,
 				*prev;
 		ptr = collective;
 		do
 		{
-			if (!strcmp(member->reliable, ptr->reliable)) {
+			if (!strcmp(member->reliable, ptr->reliable))
+			{
 				debug_msg("collective_add_member - dropping duplicate\n");
 				free(member);
 				return 0;
@@ -135,6 +120,24 @@ collective_add_member(char *name)
 	}
 	collective_count++;
 
+	return 0;
+}
+
+int
+collective_parse(char *buffer, char separator)
+{
+	char	*tmp = strdup(buffer);
+	char	*ptr = tmp;
+
+	while (ptr)
+	{
+		char *sep;
+		if ((sep = strchr(ptr, separator)))
+			*sep++ = '\0';
+		if (strlen(ptr))
+			collective_add_member(ptr);
+		ptr = sep;
+	}
 	return 0;
 }
 
@@ -197,10 +200,12 @@ collective_add_stdin(FILE *file)
 		char	 readbuffer[1024],
 			*tmpbuffer;
 
-		if ((tmp = read(fd, &readbuffer, sizeof(readbuffer))) > 0) {
+		if ((tmp = read(fd, &readbuffer, sizeof(readbuffer))) > 0)
+		{
 			tmpbuffer = (char *)malloc(sizeof(char) * (count + tmp + 1));
 			bzero(tmpbuffer, sizeof(char) * (count + tmp + 1));
-			if (wcoll) {
+			if (wcoll)
+			{
 				bcopy(wcoll, tmpbuffer, sizeof(char) * count);
 				free(wcoll);
 			}

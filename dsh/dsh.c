@@ -36,6 +36,9 @@ static char rcsid[] = "$Id$";
 #include <errno.h>
 #include <unistd.h>
 #include <string.h>
+#include <signal.h>
+#include <sys/time.h>
+#include <sys/resource.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -44,7 +47,11 @@ static char rcsid[] = "$Id$";
 #include "print.h"
 #include "debug.h"
 #include "resolv.h"
+#include "queue.h"
 #include "collective.h"
+#include "proc.h"
+
+#define MAX_FANOUT(x) ((x - 3) / 3)
 
 unsigned int	 qflag = 0,
 		 iflag = 0,
@@ -59,24 +66,72 @@ char		*lflag = (char *)NULL,
 		*wflag = (char *)NULL,
 		*oflag = (char *)NULL;
 
+int		 signaled = 0;
+
 unsigned int	 debug = 0;
 
 extern int 	 errno;
 
 int usage(void);
 
+void
+sig_handler(int signum)
+{
+	signaled = signum;
+	debug_msg("sig_handler(%d)\n", signum);
+}
 
 int
 main(int argc, char **argv)
 {
 	extern int	 optind;
 	extern char	*optarg;
-	int		 ch;
+	int		 ch,
+			 i,
+			 remote_argc = 0,
+			 remote_argc_pad = 4;
 	char		*wcoll = (char *)NULL,
-			*fanout;
+			*fanout,
+			*dsh_remote_cmd,
+			*rcmd_pgm,
+			*hn_method;
+	struct member	*ptr;
+	struct rlimit	 rl;
+	char		**remote_argv = (char **)NULL;
 
 	if (getenv("DSH_DEBUG") != NULL)
 		debug = 1;
+
+	dsh_remote_cmd	= getenv("DSH_REMOTE_CMD") ?: "rsh";
+	if (!strcmp(dsh_remote_cmd, "rsh"))
+		rcmd_pgm	= getenv("RCMD_PGM") ?: "/bin/rsh";
+	else if (!strcmp(dsh_remote_cmd, "secrshell"))
+		rcmd_pgm	= getenv("RCMD_PGM") ?: "/bin/ssh";
+	else
+	{
+		fprintf(stderr, "unknown DSH_REMOTE_CMD %s\n", dsh_remote_cmd);
+		exit(1);
+	}
+	hn_method	= getenv("HN_METHOD") ?: "initial_hostname";
+
+	if (getrlimit(RLIMIT_NOFILE, &rl) == -1)
+	{
+		perror("getrlimit");
+	} else {
+		debug_msg("RLIMIT_NOFILE = %d (%d)\n",
+		    rl.rlim_cur, rl.rlim_max);
+		debug_msg("maximum fanout: %d\n", MAX_FANOUT(rl.rlim_cur));
+		/* XXX Reduce fflag if necessary */
+	}
+
+	if (getrlimit(RLIMIT_NPROC, &rl) == -1)
+	{
+		perror("getrlimit");
+	} else {
+		debug_msg("RLIMIT_NPROC = %d (%d)\n",
+		    rl.rlim_cur, rl.rlim_max);
+		/* XXX Reduce fflag if necessary */
+	}
 
 	if ((fanout = getenv("FANOUT")) != NULL && atoi(fanout) > 0)
 		fflag = atoi(fanout);
@@ -105,12 +160,25 @@ main(int argc, char **argv)
 				break;
 			case 'd':
 				dflag = 1;
+				if (Dflag)
+				{
+					fprintf(stderr, "-D and -d cannot be used at the same time.\n");
+					exit(1);
+				}
+				remote_argc_pad++;
 				break;
 			case 'D':
 				Dflag = 1;
+				if (dflag)
+				{
+					fprintf(stderr, "-D and -d cannot be used at the same time.\n");
+					exit(1);
+				}
+				remote_argc_pad++;
 				break;
 			case 'l':
 				lflag = strdup(optarg);
+				remote_argc_pad += 2;
 				break;
 			case 'w':
 				wflag = strdup(optarg);
@@ -120,6 +188,7 @@ main(int argc, char **argv)
 				break;
 			case 'o':
 				oflag = strdup(optarg);
+				remote_argc_pad++;
 				break;
 			default:
 				exit(!usage());
@@ -130,6 +199,33 @@ main(int argc, char **argv)
 	argc -= optind;
 	argv += optind;
 
+	remote_argv = (char **)malloc(sizeof(char *) * (argc + remote_argc_pad));
+	bzero(remote_argv, sizeof(char *) * (argc + remote_argc_pad));
+	remote_argv[remote_argc++] = strdup(rcmd_pgm);
+	if (lflag)
+	{
+		remote_argv[remote_argc++] = strdup("-l");
+		remote_argv[remote_argc++] = strdup(lflag);
+	}
+	if (dflag)
+		remote_argv[remote_argc++] = strdup("-f");
+	if (Dflag)
+		remote_argv[remote_argc++] = strdup("-F");
+	if (oflag)
+		remote_argv[remote_argc++] = strdup(oflag);
+
+	remote_argv[remote_argc++] = NULL; /* hostname */
+
+	for (i = 0; i < argc; i++)
+		remote_argv[remote_argc++] = strdup(argv[i]);
+	remote_argv[remote_argc++] = NULL;
+
+	debug_msg("remote_argv = ");
+	for (i = 0; i < remote_argc; i++)
+		debug_msg("%s ", (remote_argv[i] ? : "(NULL)"));
+	debug_msg("\nremote_argc = %d - %d - %d\n",
+	    remote_argc, argc, argc + remote_argc_pad);
+	
 	if (!wflag && ((wcoll = getenv("WCOLL")) == NULL))
 	{
 		fprintf(stderr, "working collective not set.\n");
@@ -139,18 +235,20 @@ main(int argc, char **argv)
 	if (wflag)
 	{
 		if (*wflag != '-')
+		{
+			debug_msg("loading collective from -w\n");
 			collective_parse(wflag, ',');
-		else 
+		} else {
+			debug_msg("loading collective from stdin\n");
 			collective_add_stdin(stdin);
+		}
 	} else {
 		FILE	*file = stdin;
-		if (!wflag)
+		debug_msg("loading collective from WCOLL=%s\n", wcoll);
+		if ((file = fopen(wcoll, "r")) == NULL)
 		{
-			if ((file = fopen(wcoll, "r")) == NULL)
-			{
-				perror("fopen");
-				return 1;
-			}
+			perror("fopen");
+			return 1;
 		}
 		collective_add_file(file);
 	}
@@ -158,29 +256,29 @@ main(int argc, char **argv)
 	if (qflag)
 		return collective_display();
 
+	signal(SIGINT,  &sig_handler);
+	signal(SIGQUIT, &sig_handler);
+	signal(SIGABRT, &sig_handler);
+
+	queue_max_slots(fflag);
+	ptr = collective_get_next(NULL);
+	while ((ptr || queue_load()) && !signaled)
+	{
+		while ((queue_slots() > 0 && ptr) && !signaled)
+		{
+			queue_insert(ptr->name);
+			ptr = collective_get_next(ptr);
+			sleep(1);
+		}
+		if (!signaled)
+			queue_run();
+	}
+
+	if (signaled > 0 && queue_load() > 0)
+	{
+		debug_msg("queued processes to be killed: %d\n",
+		    queue_load());
+	}
 
 	return 0;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

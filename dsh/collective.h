@@ -30,10 +30,20 @@
 #ifndef _collective_h
 #define _collective_h
 
+typedef struct member
+{
+        char            *name,
+                        *reliable;
+        struct member   *prev,
+                        *next;
+} member_t;
+
 int collective_parse(char *, char);
 int collective_add_member(char *);
 int collective_display(void);
 int collective_add_file(FILE *);
 int collective_add_stdin(FILE *);
+struct member *collective_get_next(struct member *);
+
 
 #endif /* _collective_h */
