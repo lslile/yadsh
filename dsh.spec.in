@@ -29,8 +29,7 @@ rsh and ssh.
 
 %configure \
 	--prefix=%prefix \
-	--with-rsh=/usr/kerberos/bin/krsh \
-	--with-kerberized-rsh \
+	--with-rsh=/usr/bin/rsh \
 	--with-dshpath=/sbin:/usr/sbin:/bin:/usr/bin:/etc/usr/kerberos/sbin:/usr/kerberos/bin:/usr/local/bin:/usr/local/sys/bin
 make
 
