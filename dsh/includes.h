@@ -33,6 +33,8 @@
 #define RCSID(msg) \
 static /**/const char *const rcsid[] = { (char *)rcsid, "\100(#)" msg }
 
+#include "config.h"
+
 #include <sys/mman.h>
 #include <sys/resource.h>
 #include <sys/socket.h>
@@ -51,6 +53,7 @@ static /**/const char *const rcsid[] = { (char *)rcsid, "\100(#)" msg }
 #include <string.h>
 #include <stdarg.h>
 #include <time.h>
+#include <ctype.h>
 
 #if defined(HAVE_NETDB_H)
 # include <netdb.h>
@@ -61,7 +64,11 @@ static /**/const char *const rcsid[] = { (char *)rcsid, "\100(#)" msg }
 #include <netinet/in.h>
 #include <unistd.h>
 
+#if defined(HAVE_READLINE_READLINE_H)
 #include <readline/readline.h>
-#include <readline/history.h>
+#  if defined(HAVE_READLINE_HISTORY_H)
+#  include <readline/history.h>
+#  endif /* HAVE_READLINE_HISTORY_H */
+#endif /* HAVE_READLINE_H */
 
 #endif /* _includes_h */
