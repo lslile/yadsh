@@ -200,8 +200,8 @@ main(int argc, char **argv)
 			 dshtimeout = TIMEOUT;
 	char		*wcoll = (char *)NULL,
 			*fanout,
-			*dsh_remote_cmd,
-			*rcmd_pgm,
+			*dsh_remote_cmd = RSH_DFLT,
+			*rcmd_pgm = "rsh",
 			*hn_method,
 			*dshpath,
 			*prompt;
@@ -223,14 +223,14 @@ main(int argc, char **argv)
 		debug = 1;
 	debug_msg("DSH_DEBUG\n");
 
-	dsh_remote_cmd = getenv("DSH_REMOTE_CMD") ?: "rsh";
-	if (!strcmp(dsh_remote_cmd, "rsh"))
-		rcmd_pgm = getenv("RCMD_PGM") ?: RSH_DFLT;
+	rcmd_pgm = getenv("RCMD_PGM") ?: "rsh";
+	if (!strcmp(rcmd_pgm, "rsh"))
+		dsh_remote_cmd = getenv("DSH_REMOTE_CMD") ?: RSH_DFLT;
 	else if (!strcmp(dsh_remote_cmd, "secrshell"))
-		rcmd_pgm = getenv("RCMD_PGM") ?: SSH_DFLT;
+		dsh_remote_cmd = getenv("DSH_REMOTE_CMD") ?: SSH_DFLT;
 	else
 	{
-		print_error("unknown DSH_REMOTE_CMD %s\n", dsh_remote_cmd);
+		print_error("unknown RCMD_PGM %s\n", rcmd_pgm);
 		exit(1);
 	}
 	debug_msg("DSH_REMOTE_CMD = %s\n", dsh_remote_cmd);
@@ -361,7 +361,7 @@ main(int argc, char **argv)
 
 	remote_argv = (char **)malloc(sizeof(char *) * (argc + remote_argc_pad));
 	memset(remote_argv, argc + remote_argc_pad, sizeof(char *));
-	remote_argv[remote_argc++] = strdup(rcmd_pgm);
+	remote_argv[remote_argc++] = strdup(dsh_remote_cmd);
 	if (lflag)
 	{
 		remote_argv[remote_argc++] = strdup("-l");
