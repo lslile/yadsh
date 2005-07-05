@@ -4,7 +4,8 @@ INCLUDES =	$(RL_CFLAGS)
 
 bin_PROGRAMS =	dsh
 
-dsh_SOURCES =	collective.c \
+dsh_SOURCES =	\
+		collective.c \
 		debug.c \
 		dsh.c \
 		print.c \
@@ -15,7 +16,7 @@ dsh_SOURCES =	collective.c \
 
 dsh_LDADD =	$(RL_LIBS)
 
-noinst_HEADERS = acconfig.h \
+noinst_HEADERS = \
 		collective.h \
 		config.h \
 		debug.h \
@@ -26,5 +27,4 @@ noinst_HEADERS = acconfig.h \
 		queue.h \
 		resolv.h
 		
-
 EXTRA_DIST = bootstrap dsh.spec

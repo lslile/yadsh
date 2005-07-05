@@ -30,9 +30,12 @@
 #ifndef _proc_h
 #define _proc_h
 
+#include "queue.h" /* for struct proccess */
+
 pid_t proc_spawn(struct process *);
-int proc_read(struct process *, int, char **, int *);
+int proc_read(int, char **, int *);
 int proc_reap(struct process *);
 int proc_output(FILE *, struct process *, char **, int *, int);
+void proc_sig_child(int signo);
 
 #endif /* _proc_h */

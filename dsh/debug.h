@@ -30,6 +30,8 @@
 #ifndef _debug_h
 #define _debug_h
 
+int set_debug(int);
+int get_debug(void);
 int debug_msg(char *, ...);
 
 #endif /* _debug_h */

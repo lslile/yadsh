@@ -50,7 +50,17 @@ static /**/const char *const rcsid[] = { (char *)rcsid, "\100(#)" msg }
 #include <fcntl.h>
 #include <signal.h>
 #include <stdlib.h>
-#include <string.h>
+
+#if HAVE_STRING_H
+# if !STDC_HEADERS && HAVE_MEMORY_H
+#  include <memory.h>
+# endif
+# include <string.h>
+#endif
+#if HAVE_STRINGS_H
+# include <strings.h>
+#endif
+
 #include <stdarg.h>
 #include <time.h>
 #include <ctype.h>
@@ -70,5 +80,14 @@ static /**/const char *const rcsid[] = { (char *)rcsid, "\100(#)" msg }
 #  include <readline/history.h>
 #  endif /* HAVE_READLINE_HISTORY_H */
 #endif /* HAVE_READLINE_H */
+
+#include "collective.h"
+#include "debug.h"
+#include "dsh.h"
+#include "print.h"
+#include "proc.h"
+#include "queue.h"
+#include "resolv.h"
+#include "usage.h"
 
 #endif /* _includes_h */

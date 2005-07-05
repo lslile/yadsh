@@ -28,13 +28,8 @@
  */
 
 #include "includes.h"
-RCSID("$Id$");
 
-#include "dsh.h"
-#include "print.h"
-#include "debug.h"
-#include "resolv.h"
-#include "collective.h"
+RCSID("$Id$");
 
 struct member	*collective = (struct member *)NULL;
 

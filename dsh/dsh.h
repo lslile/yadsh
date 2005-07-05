@@ -44,13 +44,14 @@ extern char		*lflag,
 			*oflag,
 			*Yflag;
 	
-extern unsigned int	 debug,
-			 collate;
+extern unsigned int	 collate;
 
 extern char 		**remote_argv;
 extern int 		  remote_argc;
 
 char *clean_string(char *);
+void sig_handler(int);
+int execute_command(int, char *, int, int, char **);
 
 #define TMPBUFSIZE	4096
 

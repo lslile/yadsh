@@ -28,9 +28,8 @@
  */
 
 #include "includes.h"
-RCSID("$Id$");
 
-#include "debug.h"
+RCSID("$Id$");
 
 char *
 resolv_host(char *name)

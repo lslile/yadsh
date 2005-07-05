@@ -28,12 +28,8 @@
  */
 
 #include "includes.h"
-RCSID("$Id$");
 
-#include "dsh.h"
-#include "queue.h"
-#include "print.h"
-#include "debug.h"
+RCSID("$Id$");
 
 int	sigchld = -1;
 
@@ -41,7 +37,7 @@ void
 proc_sig_child(int signo)
 {
 	sigchld++;
-	debug_msg("child exited (sigchld=%d)\n", sigchld);
+	debug_msg("child exited (%x)\n", signo);
 }
 
 int
@@ -158,7 +154,7 @@ proc_output(FILE *file, struct process *proc, char **buffer, int *length, int fl
 }
 
 int
-proc_read(struct process *proc, int fd, char **buffer, int *length)
+proc_read(int fd, char **buffer, int *length)
 {
 	char	 readbuf[TMPBUFSIZE];
 	int	 count;

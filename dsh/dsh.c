@@ -31,13 +31,6 @@
 
 RCSID("$Id$");
 
-#include "print.h"
-#include "debug.h"
-#include "resolv.h"
-#include "queue.h"
-#include "collective.h"
-#include "proc.h"
-
 #if !defined(RSH_DFLT)
 #define RSH_DFLT "/usr/bin/rsh"
 #endif /* !defined RSH_DFLT */
@@ -70,8 +63,7 @@ char		*lflag = (char *)NULL,
 int		 signaled = 0,
 		 sigcount = 0;
 
-unsigned int	 debug = 0,
-		 collate = 0;
+unsigned int	 collate = 0;
 
 extern int 	 errno;
 
@@ -79,8 +71,6 @@ char		*__ypdomain = NULL;
 
 char		**remote_argv = (char **)NULL;
 int		  remote_argc = 0;
-
-int usage(char *);
 
 void
 sig_handler(int signum)
@@ -192,8 +182,8 @@ execute_command(int quiet, char *hn_method, int timeout, int argc, char **argv)
 int
 main(int argc, char **argv)
 {
-	extern int	 optind;
-	extern char	*optarg;
+	/*extern int	 optind;
+	extern char	*optarg;*/
 	int		 ch,
 			 i,
 			 remote_argc_pad = 5,
@@ -202,8 +192,8 @@ main(int argc, char **argv)
 			*fanout,
 			*dsh_remote_cmd = RSH_DFLT,
 			*rcmd_pgm = "rsh",
-			*hn_method,
-			*dshpath,
+			*hn_method = (char *)NULL,
+			*dshpath = (char *)NULL,
 			*prompt;
 
 	char		*ping[] = { "ping", "-w", "4", NULL, NULL };
@@ -220,14 +210,14 @@ main(int argc, char **argv)
 		prompt = "dsh> ";
 
 	if (getenv("DSH_DEBUG") != NULL)
-		debug = 1;
+		set_debug(1);
 	debug_msg("DSH_DEBUG\n");
 
-	rcmd_pgm = getenv("RCMD_PGM") ?: "rsh";
+	rcmd_pgm = getenv("RCMD_PGM") ? rcmd_pgm : "rsh";
 	if (!strcmp(rcmd_pgm, "rsh"))
-		dsh_remote_cmd = getenv("DSH_REMOTE_CMD") ?: RSH_DFLT;
+		dsh_remote_cmd = getenv("DSH_REMOTE_CMD") ? dsh_remote_cmd : RSH_DFLT;
 	else if (!strcmp(rcmd_pgm, "secrshell"))
-		dsh_remote_cmd = getenv("DSH_REMOTE_CMD") ?: SSH_DFLT;
+		dsh_remote_cmd = getenv("DSH_REMOTE_CMD") ? dsh_remote_cmd : SSH_DFLT;
 	else
 	{
 		print_error("unknown RCMD_PGM %s\n", rcmd_pgm);
@@ -236,7 +226,7 @@ main(int argc, char **argv)
 	debug_msg("DSH_REMOTE_CMD = %s\n", dsh_remote_cmd);
 	debug_msg("RCMD_PGM = %s\n", rcmd_pgm);
 
-	hn_method = getenv("HN_METHOD") ?: "initial_hostname";
+	hn_method = getenv("HN_METHOD") ? hn_method : "initial_hostname";
 	if (strcmp(hn_method, "initial_hostname") &&
 	    strcmp(hn_method, "reliable"))
 	{
@@ -245,7 +235,7 @@ main(int argc, char **argv)
 	}
 	debug_msg("HN_METHOD = %s\n", hn_method);
 
-	dshpath = getenv("DSHPATH") ?: DSHPATH_DFLT;
+	dshpath = getenv("DSHPATH") ? dshpath : DSHPATH_DFLT;
 	debug_msg("DSHPATH = %s\n", dshpath);
 
 	if (getenv("DSH_TIMEOUT"))
@@ -401,7 +391,7 @@ main(int argc, char **argv)
 
 	debug_msg("remote_argv = ");
 	for (i = 0; i <= remote_argc; i++)
-		debug_msg("%s ", (remote_argv[i] ? : "(NULL)"));
+		debug_msg("%s ", (remote_argv[i] ? remote_argv[i] : "(NULL)"));
 	debug_msg("\nremote_argc = %d - %d - %d\n",
 	    remote_argc, argc, argc + remote_argc_pad);
 	

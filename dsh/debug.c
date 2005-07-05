@@ -28,9 +28,22 @@
  */
 
 #include "includes.h"
+
 RCSID("$Id$");
 
-extern int debug;
+int debug = 0;
+
+int
+set_debug(int value)
+{
+	return debug = value;
+}	
+
+int
+get_debug(void)
+{
+	return debug;
+}	
 
 int
 debug_msg(char *fmt, ...)

@@ -1,0 +1,4 @@
+o CFLAGS should be 
+	-g -Wall -pedantic -Wshadow -Wpointer-arith \
+	-Wcast-align -Wmissing-prototypes -Wmissing-declarations \
+	-Wnested-externs -Winline -W

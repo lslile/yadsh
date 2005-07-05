@@ -28,24 +28,13 @@
  */
 
 #include "includes.h"
-RCSID("$Id$");
 
-#include "dsh.h"
-#include "debug.h"
-#include "collective.h"
-#include "queue.h"
-#include "proc.h"
+RCSID("$Id$");
 
 struct process *queue = (struct process *)NULL;
 
 int queue_count = 0;
 int queue_slot_count = 0;
-
-int
-queue_add(char *host)
-{
-	return 0;
-}
 
 int
 queue_load(void)
@@ -98,12 +87,12 @@ queue_insert(struct member *ptr, char *name, int argc, char **argv)
 
 	if (queue)
 	{
-		struct process	*ptr = queue,
+		struct process	*qptr = queue,
 				*prev = queue;
-		while (ptr)
+		while (qptr)
 		{
-			prev = ptr;
-			ptr = ptr->next;
+			prev = qptr;
+			qptr = qptr->next;
 		}
 		prev->next = new;
 		new->prev = prev;
@@ -158,7 +147,7 @@ queue_delete(struct process *ptr)
 }
 
 int
-queue_run(int quiet, int signal)
+queue_run(int quiet, int signo)
 {
 	struct process	*ptr = queue;
 	fd_set		 read_fds,
@@ -173,7 +162,7 @@ queue_run(int quiet, int signal)
 
 	if (load != queue_count || slots != queue_slots())
 		debug_msg("\nqueue_run(%d) [load %d / slots %d]\n",
-		    signal, queue_count, queue_slots());
+		    signo, queue_count, queue_slots());
 
 	load = queue_count;
 	slots = queue_slots();
@@ -183,10 +172,10 @@ queue_run(int quiet, int signal)
 	while (ptr)
 	{
 		struct process *next = ptr->next;
-		if (signal && ptr->signal != signal)
+		if (signo && ptr->signal != signo)
 		{
-			ptr->signal = signal;
-			kill(ptr->pid, signal);
+			ptr->signal = signo;
+			kill(ptr->pid, signo);
 		}
 		if (ptr->watchdog && now > ptr->timer)
 		{
@@ -253,8 +242,7 @@ queue_run(int quiet, int signal)
 		if (ptr->pstdout >= 0 && FD_ISSET(ptr->pstdout, &read_fds))
 		{
 			debug_msg("proc %d: stdout ready\n", ptr->pid);
-			count = proc_read(ptr, ptr->pstdout,
-					&ptr->outbuffer, &ptr->outcount);
+			count = proc_read(ptr->pstdout, &ptr->outbuffer, &ptr->outcount);
 			if (count == 0)
 			{
 				debug_msg("%d closing stdout\n", ptr->pid);
@@ -277,8 +265,7 @@ queue_run(int quiet, int signal)
 		if (ptr->pstderr >= 0 && FD_ISSET(ptr->pstderr, &read_fds))
 		{
 			debug_msg("proc %d: stderr ready\n", ptr->pid);
-			count = proc_read(ptr, ptr->pstderr,
-					&ptr->errbuffer, &ptr->errcount);
+			count = proc_read(ptr->pstderr, &ptr->errbuffer, &ptr->errcount);
 			if (count == 0)
 			{
 				debug_msg("%d closing stderr\n", ptr->pid);

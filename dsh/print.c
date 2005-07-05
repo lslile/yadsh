@@ -28,9 +28,8 @@
  */
 
 #include "includes.h"
-RCSID("$Id$");
 
-#include "dsh.h"
+RCSID("$Id$");
 
 int
 print_error(char *fmt, ...)
@@ -49,7 +48,7 @@ print_host(FILE *file, char *fmt, ...)
 	va_list ap;
 
 	va_start(ap, fmt);
-	if (debug && file == stderr)
+	if (get_debug() && file == stderr)
 		vfprintf(stdout, fmt, ap);
 	else
 		vfprintf(file, fmt, ap);

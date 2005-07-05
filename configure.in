@@ -10,13 +10,10 @@ AC_PROG_AWK
 AC_PROG_CC
 AC_PROG_INSTALL
 AC_PROG_LN_S
-AC_ARG_PROGRAM
 
 dnl Checks for libraries.
 AC_SEARCH_LIBS(inet_aton, resolv)
 AC_SEARCH_LIBS(gethostbyname, nsl)
-dnl AC_SEARCH_LIBS(tgetent, [readline ncurses curses termcap])
-dnl AC_SEARCH_LIBS(readline, readline)
 AC_SEARCH_LIBS(basename, gen)
 
 dnl ******************************
@@ -202,12 +199,6 @@ AC_SUBST(SSH_DFLT)
 dnl
 dnl end --with-ssh
 dnl
-
-# Is your rsh kerberized?
-AC_ARG_ENABLE(kerberized-rsh, [  --with-kerberized-rsh])
-if test "$enable_kerberized_rsh" = "yes"; then
-	AC_DEFINE(KERBERIZED_RSH)
-fi
 
 # What is the default for DSHPATH?
 AC_ARG_WITH(dshpath,
