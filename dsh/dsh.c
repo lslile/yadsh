@@ -226,7 +226,7 @@ main(int argc, char **argv)
 	rcmd_pgm = getenv("RCMD_PGM") ?: "rsh";
 	if (!strcmp(rcmd_pgm, "rsh"))
 		dsh_remote_cmd = getenv("DSH_REMOTE_CMD") ?: RSH_DFLT;
-	else if (!strcmp(dsh_remote_cmd, "secrshell"))
+	else if (!strcmp(rcmd_pgm, "secrshell"))
 		dsh_remote_cmd = getenv("DSH_REMOTE_CMD") ?: SSH_DFLT;
 	else
 	{
