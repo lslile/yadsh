@@ -73,6 +73,32 @@ char		**remote_argv = (char **)NULL;
 int		  remote_argc = 0;
 
 void
+push_remote_argv(char *argument)
+{
+	char **tmp;
+
+	/* XXX +2 because we keep the remote_argv null terminated at all times */
+	if ((tmp = (char **)malloc(sizeof(char *) * (remote_argc + 2))) == NULL)
+	{
+		perror("Unable to allocate remote arguments - malloc");
+		exit(1);
+	}
+	memset(tmp, '\0', sizeof(char *) * (remote_argc + 2));
+
+	if (remote_argv)
+	{
+		memcpy(tmp, remote_argv, remote_argc * sizeof(char *));
+		free(remote_argv);
+	}
+	remote_argv = tmp;
+
+	if (argument)
+		remote_argv[remote_argc] = strdup(argument);
+
+	remote_argc++;
+}
+
+void
 sig_handler(int signum)
 {
 	debug_msg("sig_handler(%d)\n", signum);
@@ -182,11 +208,8 @@ execute_command(int quiet, char *hn_method, int timeout, int argc, char **argv)
 int
 main(int argc, char **argv)
 {
-	/*extern int	 optind;
-	extern char	*optarg;*/
 	int		 ch,
 			 i,
-			 remote_argc_pad = 5,
 			 dshtimeout = TIMEOUT;
 	char		*wcoll = (char *)NULL,
 			*fanout,
@@ -194,7 +217,8 @@ main(int argc, char **argv)
 			*rcmd_pgm = "rsh",
 			*hn_method = (char *)NULL,
 			*dshpath = (char *)NULL,
-			*prompt;
+			*prompt,
+			*envp;
 
 	char		*ping[] = { "ping", "-w", "4", NULL, NULL };
 
@@ -213,11 +237,11 @@ main(int argc, char **argv)
 		set_debug(1);
 	debug_msg("DSH_DEBUG\n");
 
-	rcmd_pgm = getenv("RCMD_PGM") ? rcmd_pgm : "rsh";
+	rcmd_pgm = (envp = getenv("RCMD_PGM")) ? envp : "rsh";
 	if (!strcmp(rcmd_pgm, "rsh"))
-		dsh_remote_cmd = getenv("DSH_REMOTE_CMD") ? dsh_remote_cmd : RSH_DFLT;
+		dsh_remote_cmd = (envp = getenv("DSH_REMOTE_CMD")) ? envp : RSH_DFLT;
 	else if (!strcmp(rcmd_pgm, "secrshell"))
-		dsh_remote_cmd = getenv("DSH_REMOTE_CMD") ? dsh_remote_cmd : SSH_DFLT;
+		dsh_remote_cmd = (envp = getenv("DSH_REMOTE_CMD")) ? envp : SSH_DFLT;
 	else
 	{
 		print_error("unknown RCMD_PGM %s\n", rcmd_pgm);
@@ -226,7 +250,9 @@ main(int argc, char **argv)
 	debug_msg("DSH_REMOTE_CMD = %s\n", dsh_remote_cmd);
 	debug_msg("RCMD_PGM = %s\n", rcmd_pgm);
 
-	hn_method = getenv("HN_METHOD") ? hn_method : "initial_hostname";
+	push_remote_argv(dsh_remote_cmd);
+
+	hn_method = (envp = getenv("HN_METHOD")) ? envp : "initial_hostname";
 	if (strcmp(hn_method, "initial_hostname") &&
 	    strcmp(hn_method, "reliable"))
 	{
@@ -235,7 +261,7 @@ main(int argc, char **argv)
 	}
 	debug_msg("HN_METHOD = %s\n", hn_method);
 
-	dshpath = getenv("DSHPATH") ? dshpath : DSHPATH_DFLT;
+	dshpath = (envp = getenv("DSHPATH")) ? envp : DSHPATH_DFLT;
 	debug_msg("DSHPATH = %s\n", dshpath);
 
 	if (getenv("DSH_TIMEOUT"))
@@ -311,7 +337,6 @@ main(int argc, char **argv)
 					print_error("-D and -d cannot be used at the same time.\n");
 					exit(1);
 				}
-				remote_argc_pad++;
 				break;
 			case 'D':
 				Dflag = 1;
@@ -320,11 +345,9 @@ main(int argc, char **argv)
 					print_error("-D and -d cannot be used at the same time.\n");
 					exit(1);
 				}
-				remote_argc_pad++;
 				break;
 			case 'l':
 				lflag = strdup(optarg);
-				remote_argc_pad += 2;
 				break;
 			case 'w':
 				wflag = strdup(optarg);
@@ -334,7 +357,7 @@ main(int argc, char **argv)
 				break;
 			case 'o':
 				oflag = strdup(optarg);
-				remote_argc_pad++;
+				push_remote_argv(oflag);
 				break;
 			case 'Y':
 				Yflag = strdup(optarg);
@@ -349,51 +372,43 @@ main(int argc, char **argv)
 	argc -= optind;
 	argv += optind;
 
-	remote_argv = (char **)malloc(sizeof(char *) * (argc + remote_argc_pad));
-	memset(remote_argv, argc + remote_argc_pad, sizeof(char *));
-	remote_argv[remote_argc++] = strdup(dsh_remote_cmd);
 	if (lflag)
 	{
-		remote_argv[remote_argc++] = strdup("-l");
-		remote_argv[remote_argc++] = strdup(lflag);
+		push_remote_argv("-l");
+		push_remote_argv(lflag);
 	}
 	if (dflag)
-		remote_argv[remote_argc++] = strdup("-f");
+		push_remote_argv("-f");
 	if (Dflag)
-		remote_argv[remote_argc++] = strdup("-F");
-	if (oflag)
-		remote_argv[remote_argc++] = strdup(oflag);
+		push_remote_argv("-F");
 
-	remote_argv[remote_argc++] = NULL; /* hostname */
+	push_remote_argv(NULL); /* XXX First NULL argument becomes hostname */
 
 	if (strlen(dshpath))
 	{
+		char *tmp;
 		if (tflag)
 		{
-			remote_argv[remote_argc] = (char *)malloc(sizeof(char) *
+			tmp = (char *)malloc(sizeof(char) *
 				(strlen(dshpath) + strlen("setenv PATH ;") + 1) );
-			sprintf(remote_argv[remote_argc++], "setenv PATH %s;", dshpath);
+			sprintf(tmp, "setenv PATH %s;", dshpath);
 		} else {
-			remote_argv[remote_argc] = (char *)malloc(sizeof(char) *
+			tmp = (char *)malloc(sizeof(char) *
 				(strlen(dshpath) + strlen("PATH=; export PATH;") + 1) );
-			sprintf(remote_argv[remote_argc++], "PATH=%s; export PATH;", dshpath);
+			sprintf(tmp, "PATH=%s; export PATH;", dshpath);
 		}
+		push_remote_argv(tmp);
 	}
 
-	if (!argc)
-		remote_argv[remote_argc++] = NULL;
-	else
+	if (argc)
 		for (i = 0; i < argc; i++)
-			remote_argv[remote_argc++] = strdup(argv[i]);
-
-	remote_argv[remote_argc] = NULL; /* Last argv entry! */
-
+			push_remote_argv(argv[i]);
 
 	debug_msg("remote_argv = ");
-	for (i = 0; i <= remote_argc; i++)
+	for (i = 0; i < remote_argc; i++)
 		debug_msg("%s ", (remote_argv[i] ? remote_argv[i] : "(NULL)"));
-	debug_msg("\nremote_argc = %d - %d - %d\n",
-	    remote_argc, argc, argc + remote_argc_pad);
+
+	debug_msg("\nremote_argc = %d\n", remote_argc);
 	
 	if (!wflag && ((wcoll = getenv("WCOLL")) == NULL))
 	{

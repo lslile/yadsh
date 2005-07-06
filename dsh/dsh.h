@@ -52,6 +52,7 @@ extern int 		  remote_argc;
 char *clean_string(char *);
 void sig_handler(int);
 int execute_command(int, char *, int, int, char **);
+void push_remote_argv(char *);
 
 #define TMPBUFSIZE	4096
 
