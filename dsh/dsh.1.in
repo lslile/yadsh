@@ -1,0 +1,153 @@
+.\"  Copyright (c) 2004, Larry Lile <lile@stdio.com>
+.\"  All rights reserved.
+.\"
+.\"  Redistribution and use in source and binary forms, with or without
+.\"  modification, are permitted provided that the following conditions
+.\"  are met:
+.\"  1. Redistributions of source code must retain the above copyright
+.\"     notice unmodified, this list of conditions, and the following
+.\"     disclaimer.
+.\"  2. Redistributions in binary form must reproduce the above copyright
+.\"     notice, this list of conditions and the following disclaimer in the
+.\"     documentation and/or other materials provided with the distribution.
+.\"
+.\"  THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
+.\"  ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+.\"  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+.\"  ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+.\"  FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+.\"  DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+.\"  OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+.\"  HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+.\"  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+.\"  OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+.\"  SUCH DAMAGE.
+.\"
+.\"  $Id$
+.\"
+.Dd July 6, 2005
+.Dt DSH 1
+.Os "dsh (@VERSION@)"
+.Sh NAME
+.Nm dsh
+.Nd distributed shell
+.Sh SYNOPSIS
+.Nm
+.Op Fl q
+.Pp
+.Nm
+.Op Fl h
+.Pp
+.Nm
+.Op Fl i
+.Op Fl v
+.Op Fl c
+.Op Fl t Ar csh|sh
+.Op Fl d Li | Fl D
+.Op Fl l Ar login_name
+.Op Fl w Ar {host_name|@netgroup},... | Fl
+.Op Fl f Ar fanout_value
+.Op Fl o Dq Ar flags_and_parms
+.Op Fl Y Ar domain
+.Op command
+.Sh DESCRIPTION
+.Nm Dsh
+executes commands on all hosts specified in the working collective.
+.Pp
+The options are as follows:
+.Bl -tag -width Ds
+.It Fl q
+Displays the hosts in the current working collective.
+.It Fl h
+Displays usage information.
+.It Fl i
+When set
+.Nm
+will display the working collective and fanout values before each
+command is issued.  This option is meaningless in batch mode.
+.It Fl v
+Hosts are verified using ping before being added to the working collective.
+If a host is not responding it will not be added to the collective.
+.It Fl c
+If set
+.Nm
+will continue to send commands to hosts that are not responding or have
+returned a non-zero exit code.  If this flag is not set
+.Nm
+will remove hosts that are not responding or have returned a non-zero
+exit code for the remainder of the session.
+.It Fl t Ar sh|csh
+Specifies the target shell syntax.  This flag is used to create the syntax
+of the internal environment variables passed with the command.  Supported
+shells are
+.Ic sh
+and
+.Ic csh .
+The default is
+.Ic csh .
+.It Fl d
+Causes
+.Nm
+to set the
+.Fl f
+flag on the rsh command.  This option is only relevant for
+.Ic rsh .
+.It Fl D
+Causes
+.Nm
+to set the
+.Fl F
+flag on the rsh command.  This option is only relevant for
+.Ic rsh .
+.It Fl l Ar login_name
+Specified the login name for the remote system.
+.It Fl w Ar {host_name|@netgroup},... | Fl
+Specifies the working collective.
+.It Fl f Ar fanout_value
+Specified the number of hosts in the collective to execute the command
+in parallel.  The default value is 64.
+.It Fl o Ar flags_and_parms
+Allows additional arguments to be specified to the remote command program.
+The flags and parameters will need to be surrounded with single or double
+quotes.  The 
+.Fl o
+parameter can be specified multiple time to build up the argument list
+as needed.
+.It Fl Y Ar domain
+Specify the NIS domain for netgroup lookups if it is not the default
+NIS domain.
+.El
+.Pp
+If the
+.Fl w
+flag is not specified the environment variable
+.Ev WCOLL
+should contain the name of a file
+.Sh ENVIRONMENT
+.Nm
+.Bl -tag -width Ds
+.It Ev WCOLL
+.It Ev DSHPATH
+.It Ev DSH_REMOTE_CMD
+.It Ev RCMD_PGM
+.El
+.Sh FILES
+@exec_prefix@/dshbak
+.Sh EXAMPLES
+.Sh DIAGNOSTICS
+.Sh COMPATIBILITY
+.Sh AUTHORS
+Dsh is a re-implementation of the original dsh found in IBM's PSSP
+for administering SP2s.
+.Sh BUGS
+This man page is very incomplete.
+.Sh COPYRIGHT
+Copyright \(co 2005 Larry Lile <lile@stdio.com>
+.br
+This is free software; see the source for copying conditions.  There
+is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR
+PURPOSE.
+.Sh SEE ALSO
+.Xr rsh 1 ,
+.Xr ssh 1 ,
+.Xr dshbak 1

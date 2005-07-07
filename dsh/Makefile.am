@@ -25,6 +25,17 @@ noinst_HEADERS = \
 		print.h \
 		proc.h \
 		queue.h \
-		resolv.h
+		resolv.h \
+		usage.h
+
+man_MANS = dsh.1
 		
-EXTRA_DIST = bootstrap dsh.spec
+EXTRA_DIST = bootstrap dsh.spec $(man_MANS)
+
+edit = sed \
+        -e 's,@exec_prefix\@,$(exec_prefix),g' \
+        -e 's,@VERSION\@,$(VERSION),g'
+
+dsh.1: Makefile $(srcdir)/dsh.1.in
+	rm -f dsh.1
+	$(edit) $(srcdir)/dsh.1.in > dsh.1
