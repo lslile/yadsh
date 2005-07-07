@@ -132,7 +132,7 @@ should contain the name of a file
 .It Ev RCMD_PGM
 .El
 .Sh FILES
-@exec_prefix@/dshbak
+@bindir@/dshbak
 .Sh EXAMPLES
 .Sh DIAGNOSTICS
 .Sh COMPATIBILITY

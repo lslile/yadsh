@@ -35,7 +35,7 @@ EXTRA_DIST = bootstrap dsh.spec dsh.1.in
 CLEANFILES = dsh.1
 
 edit = sed \
-        -e 's,@exec_prefix\@,$(exec_prefix),g' \
+        -e 's,@bindir\@,$(bindir),g' \
         -e 's,@VERSION\@,$(VERSION),g'
 
 dsh.1: Makefile $(srcdir)/dsh.1.in
