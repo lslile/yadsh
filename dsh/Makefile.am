@@ -30,7 +30,9 @@ noinst_HEADERS = \
 
 man_MANS = dsh.1
 		
-EXTRA_DIST = bootstrap dsh.spec $(man_MANS)
+EXTRA_DIST = bootstrap dsh.spec dsh.1.in
+
+CLEANFILES = dsh.1
 
 edit = sed \
         -e 's,@exec_prefix\@,$(exec_prefix),g' \
