@@ -18,7 +18,6 @@ dsh_LDADD =	$(RL_LIBS)
 
 noinst_HEADERS = \
 		collective.h \
-		config.h \
 		debug.h \
 		dsh.h \
 		includes.h\
@@ -30,7 +29,7 @@ noinst_HEADERS = \
 
 man_MANS = dsh.1
 		
-EXTRA_DIST = bootstrap dsh.spec dsh.1.in
+EXTRA_DIST = dsh.1.in
 
 CLEANFILES = dsh.1
 
