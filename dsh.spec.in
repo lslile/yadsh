@@ -8,7 +8,7 @@ Version: %ver
 Release: %rel
 Copyright: BSD
 Group: System Environment/Shells
-Source: ftp://ftp.nowhere.com/pub/dsh/dsh-%{ver}.tar.gz
+Source: http://prdownloads.sourceforge.net/yadsh/dsh-%{ver}.tar.gz?download
 BuildRoot: /var/tmp/dsh-%{PACKAGE_VERSION}-root
 Packager: Larry Lile <lile@stdio.com>
 Prefix: /usr
