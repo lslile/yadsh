@@ -216,7 +216,9 @@ collective_display(void)
 			printf("%s%s", (ptr == collective ? " " : ", "), ptr->name);
 		ptr = ptr->next;
 	}
-	printf("\nfanout: %d\n", fflag);
+	if (qflag)
+		printf("\nfanout: %d", fflag);
+	printf("\n");
 
 	return 0;
 }

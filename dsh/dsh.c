@@ -69,7 +69,9 @@ extern int 	 errno;
 
 char		*__ypdomain = NULL;
 
-char		**remote_argv = (char **)NULL;
+char		**remote_argv = (char **)NULL,
+		 *remote_host = (char *)NULL,
+		**remote_cmdv = (char **)NULL;
 int		  remote_argc = 0;
 
 void
@@ -77,7 +79,7 @@ push_remote_argv(char *argument)
 {
 	char **tmp;
 
-	/* XXX +2 because we keep the remote_argv null terminated at all times */
+	/* +2 because we keep the remote_argv null terminated  */
 	if ((tmp = (char **)malloc(sizeof(char *) * (remote_argc + 2))) == NULL)
 	{
 		perror("Unable to allocate remote arguments - malloc");
@@ -145,6 +147,16 @@ execute_command(int quiet, char *hn_method, int timeout, int argc, char **argv)
 
 	signaled = 0;
 	sigcount = 0;
+
+	if (iflag)
+	{
+		char **cmdp = remote_cmdv;
+		collective_display();
+		printf("command: ");
+		while(*cmdp)
+			printf("%s ", *cmdp++);
+		printf("\n");
+	}
 
 	queue_max_slots(fflag);
 	ptr = collective_get_next(NULL);
@@ -382,7 +394,9 @@ main(int argc, char **argv)
 	if (Dflag)
 		push_remote_argv("-F");
 
-	push_remote_argv(NULL); /* XXX First NULL argument becomes hostname */
+ 	/* XXX First NULL argument becomes hostname */
+	remote_host = remote_argv[remote_argc];
+	push_remote_argv(NULL);
 
 	if (strlen(dshpath))
 	{
@@ -403,6 +417,7 @@ main(int argc, char **argv)
 	if (argc)
 		for (i = 0; i < argc; i++)
 			push_remote_argv(argv[i]);
+	remote_cmdv = &remote_argv[remote_argc - argc];
 
 	debug_msg("remote_argv = ");
 	for (i = 0; i < remote_argc; i++)
@@ -456,8 +471,6 @@ main(int argc, char **argv)
 		while (1)
 		{
 			char *s;
-			if (iflag)
-				collective_display();
 
 			signal(SIGINT,  SIG_DFL);
 			signal(SIGQUIT, SIG_DFL);
