@@ -60,7 +60,7 @@ while (<STDIN>)
 	$filtered++;
 	($filtered % 1000) == 0 and print dot $filtered;
 }
-print dot if $filtered > 1000;;
+print dot if $filtered > 1000;
 
 if ($opt_c)
 {
