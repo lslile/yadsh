@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004, Larry Lile <lile@stdio.com>
+ * Copyright (c) 2004, 2005, Larry Lile <lile@users.sourceforge.net>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -33,6 +33,4 @@
 char *resolv_host(char *);
 char **resolv_netgroup(char *);
 
-
 #endif /* _resolv_h */
-

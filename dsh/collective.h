@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004, Larry Lile <lile@stdio.com>
+ * Copyright (c) 2004, 2005, Larry Lile <lile@users.sourceforge.net>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -47,6 +47,5 @@ int collective_add_file(FILE *);
 int collective_add_stdin(FILE *);
 struct member *collective_get_next(struct member *);
 void free_collective(void);
-
 
 #endif /* _collective_h */

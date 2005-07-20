@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004, Larry Lile <lile@stdio.com>
+ * Copyright (c) 2004, 2005, Larry Lile <lile@users.sourceforge.net>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,4 +35,3 @@ int print_host(FILE *, char *, ...);
 int print_host_error(char *, char *);
 
 #endif /* _print_h */
-

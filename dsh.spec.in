@@ -10,7 +10,7 @@ Copyright: BSD
 Group: System Environment/Shells
 Source: http://prdownloads.sourceforge.net/yadsh/dsh-%{ver}.tar.gz
 BuildRoot: /var/tmp/dsh-%{PACKAGE_VERSION}-root
-Packager: Larry Lile <lile@stdio.com>
+Packager: Larry Lile <lile@users.sourceforge.net>
 Prefix: /usr
 
 %description
