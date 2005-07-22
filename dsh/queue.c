@@ -177,13 +177,27 @@ queue_run(int quiet, int signo)
 			ptr->signal = signo;
 			kill(ptr->pid, signo);
 		}
+		if (ptr->watchdog && now > ptr->timer && !ptr->member->responding)
+		{
+			debug_msg("queue_run() watchdog killed %d, but it didn't die\n",
+			    ptr->pid);
+			ptr->watchdog = -1;
+			ptr->timer = 0;
+			ptr->done = 1;
+			if (ptr->pstdout >= 0)
+				close(ptr->pstdout);
+			ptr->pstdout = -1;
+			if (ptr->pstderr >= 0)
+				close(ptr->pstderr);
+			ptr->pstderr = -1;
+		}
 		if (ptr->watchdog && now > ptr->timer)
 		{
 			debug_msg("queue_run() watchdog killed %d\n", ptr->pid);
 			ptr->signal = SIGTERM;
-			ptr->watchdog = -1;
-			ptr->timer = 0;
-			kill(ptr->pid, SIGTERM);
+			ptr->watchdog = 10;
+			ptr->timer = now + ptr->watchdog;
+			kill(ptr->pid, ptr->signal);
 			ptr->member->responding = 0;
 		}
 #if 0
