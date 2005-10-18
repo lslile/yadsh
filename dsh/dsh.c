@@ -185,6 +185,8 @@ execute_command(int quiet, char *hn_method, int timeout, int argc, char **argv)
 
 		while (queue_slots() > 0 && (!signaled && ptr))
 		{
+			struct member	*next;
+			next = collective_get_next(ptr);
 			if (cflag || ptr->responding)
 			{
 				char *name = ptr->name;
@@ -192,12 +194,11 @@ execute_command(int quiet, char *hn_method, int timeout, int argc, char **argv)
 					name = ptr->reliable;
 				queue_insert(ptr, name, argc, argv);
 			} else {
-				/* XXX Should delete from collective */
-				collective_drop_member(ptr);
 				debug_msg("%s not responding, dropped from collective\n",
 						ptr->name);
+				collective_drop_member(ptr);
 			}
-			ptr = collective_get_next(ptr);
+			ptr = next;
 		}
 		rc += queue_run(quiet, signaled);
 
@@ -412,6 +413,7 @@ main(int argc, char **argv)
 			sprintf(tmp, "PATH=%s; export PATH;", dshpath);
 		}
 		push_remote_argv(tmp);
+		free(tmp);
 	}
 
 	if (argc)

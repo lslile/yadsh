@@ -122,8 +122,12 @@ collective_add_member(char *name)
 			while (*ptr)
 			{
 				collective_add_member(*ptr);
+				free(*ptr);
+				*ptr=(char *)NULL;
 				ptr++;
 			}
+			free(netgroup);
+			netgroup = (char **)NULL;
 		}
 		return 0;
 	} else {

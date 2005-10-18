@@ -223,6 +223,12 @@ queue_run(int quiet, int signo)
 			{
 				proc_output(stdout, ptr, &ptr->outbuffer, &ptr->outcount, 1);
 				proc_output(stderr, ptr, &ptr->errbuffer, &ptr->errcount, 1);
+			} else {
+				if (ptr->outcount)
+					free(ptr->outbuffer);
+				if (ptr->errcount)
+					free(ptr->errbuffer);
+				ptr->outcount = ptr->errcount = 0;
 			}
 			queue_delete(ptr);
 		}
