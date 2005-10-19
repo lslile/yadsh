@@ -2,6 +2,8 @@ Change Log file for dsh
 
 $Id$
 
+Changes in 1.22:
+
 Changes in 1.21:
 
 o Get rid of some small memory leaks detected by valgrind.
