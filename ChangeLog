@@ -5,6 +5,9 @@ $Id$
 Changes in 1.21:
 
 o Get rid of some small memory leaks detected by valgrind.
+o Fixed a core dump related -v and removing members from the
+  collective on the fly.
+o Updated man page for dshbak, this still needs much work.
 
 Changes in 1.20:
 

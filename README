@@ -13,6 +13,16 @@ that needs to be run repeatedly for a group of hosts using the
 DSH_REMOTE_CMD, DSH_PATH environment variables and the -o command
 line option.
 
+The interactive command line shell is very limited at the moment
+and needs many features to be added.
+
+The man page for dsh is still incomplete and needs improvement.
+
+The man page for dshbak is little more than a stub at this time.
+
+Autoconf needs to handle the selection of perl for dshbak and
+to make sure the requirement for Digest::MD5 is met.
+
 
 Copyright Notice
 ================
