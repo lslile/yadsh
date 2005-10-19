@@ -40,12 +40,51 @@
 .Sh OPTIONS
 .Bl -tag -width Ds
 .It Fl c
+Collapses identical output from multiple hosts so that it is only
+displayed once.
 .El
-.Sh ENVIRONMENT
-.Sh FILES
 .Sh EXAMPLES
+.Bd -literal
+$ dsh -w grainger,peacock,grace,slocombe -- uname -srm | dshbak -c
+HOSTS ------------------------------------------------------------
+grace     slocombe
+------------------------------------------------------------------
+Linux 2.4.21-27.0.2.ELsmp i686
+HOSTS ------------------------------------------------------------
+grainger
+------------------------------------------------------------------
+Linux 2.4.9-e.24enterprise i686
+HOSTS ------------------------------------------------------------
+peacock
+------------------------------------------------------------------
+Linux 2.4.9-e.40smp i686
+.Ed
+.Pp
+.Bd -literal
+$ dsh -w grainger,peacock,grace,slocombe -- uname -srm | dshbak
+HOSTS ------------------------------------------------------------
+grace
+------------------------------------------------------------------
+Linux 2.4.21-27.0.2.ELsmp i686
+HOSTS ------------------------------------------------------------
+grainger
+------------------------------------------------------------------
+Linux 2.4.9-e.24enterprise i686
+HOSTS ------------------------------------------------------------
+peacock
+------------------------------------------------------------------
+Linux 2.4.9-e.40smp i686
+HOSTS ------------------------------------------------------------
+slocombe
+------------------------------------------------------------------
+Linux 2.4.21-27.0.2.ELsmp i686
+.Ed
 .Sh DIAGNOSTICS
 .Sh COMPATIBILITY
+.Nm Dshbak
+is compatible with the IBM PSSP
+.Nm
+command.
 .Sh AUTHORS
 .Nm Dshbak
 first appeard in IBM's Parallel System Support Package for AIX.
@@ -62,4 +101,3 @@ is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR
 PURPOSE.
 .Sh SEE ALSO
 .Xr dsh 1
-.Pp
