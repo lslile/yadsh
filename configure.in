@@ -229,4 +229,4 @@ AC_FUNC_VPRINTF
 AC_CHECK_FUNCS(unsetenv putenv select strdup strerror readline add_history)
 
 AC_EXEEXT
-AC_OUTPUT(Makefile dsh/Makefile dshbak/Makefile dsh.spec)
+AC_OUTPUT(Makefile dsh/Makefile dshbak/Makefile contrib/Makefile dsh.spec)
