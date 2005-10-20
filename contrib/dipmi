@@ -1,0 +1,142 @@
+#!/bin/sh
+#
+#  Copyright (c) 2005, Larry Lile <lile@users.sourceforge.net>
+#  All rights reserved.
+#
+#  Redistribution and use in source and binary forms, with or without
+#  modification, are permitted provided that the following conditions
+#  are met:
+#  1. Redistributions of source code must retain the above copyright
+#     notice unmodified, this list of conditions, and the following
+#     disclaimer.
+#  2. Redistributions in binary form must reproduce the above copyright
+#     notice, this list of conditions and the following disclaimer in the
+#     documentation and/or other materials provided with the distribution.
+#
+#  THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
+#  ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+#  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+#  ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+#  FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+#  DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+#  OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+#  HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+#  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+#  OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+#  SUCH DAMAGE.
+#
+# $Id$
+
+# Configure the following variables for your ipmi
+# environment.  If you consider this a security 
+# issue, then you should set them blank, or restrict
+# access to the script.
+default_user="admin"
+default_password="admin"
+# Anything other than lan or lanplus is probably
+# useless and should be done another way.
+default_interface="lan"
+
+# If dsh is not on your path, you can supply the
+# the full path here.
+dsh="dsh"
+
+# DSH_REMOTE_CMD, set this to the location of ipmitool,
+# if it is not on your path, you will need to supply a
+# full path.
+export DSH_REMOTE_CMD='ipmitool'
+# DSHPATH, must be set but empty otherwise it will damage
+# the ipmitool's command line.
+export DSHPATH=''
+# DSH_TIMEOUT should be set fairly low otherwise it will
+# take a long time to decide that the ipmi port has not
+# responded.
+export DSH_TIMEOUT="10"
+
+signal()
+{
+	exit 1
+}
+
+usage() {
+echo $"usage: $0 [options...] <command>
+
+       -h             This help
+       -w collective  Working collective
+       -U username    Remote session username
+       -P password    Remote session password
+       -I intf        Interface to use
+
+Collectives:
+	host         A single host
+	@netgroup    All the hosts from a netgroup
+        -            Read collective from stdin
+        WCOLL        Name of a file containing a collective
+
+Interfaces:
+        open         Linux OpenIPMI Interface [default]
+        imb          Intel IMB Interface
+        lan          IPMI v1.5 LAN Interface
+        lanplus      IPMI v2.0 RMCP+ LAN Interface
+ 
+Commands:
+        raw          Send a RAW IPMI request and print response
+        lan          Configure LAN Channels
+        chassis      Get chassis status and set power state
+        event        Send pre-defined events to MC
+        mc           Management Controller status and global enables
+        sdr          Print Sensor Data Repository entries and readings
+        sensor       Print detailed sensor information
+        fru          Print built-in FRU and scan SDR for FRU locators
+        sel          Print System Event Log (SEL)
+        pef          Configure Platform Event Filtering (PEF)
+        sol          Configure IPMIv2.0 Serial-over-LAN
+        isol         Configure IPMIv1.5 Serial-over-LAN
+        user         Configure Management Controller users
+        channel      Configure Management Controller channels
+        session      Print session information
+        exec         Run list of commands from file
+        set          Set runtime variable for shell and exec"
+}
+
+while [ "$1" != "${1##[-+]}" ]; do
+	case $1 in
+	'')
+		usage
+		exit 1
+		;;
+	-h)
+		usage
+		exit
+		;;
+	-U)
+		user=$2
+		shift 2
+		;;
+	-P)
+		password=$2
+		shift 2
+		;;
+	-I)
+		interface=$2
+		shift 2
+		;;
+	-w)
+		collective="-w $2"
+		shift 2
+		;;
+	--)
+		shift
+		break
+		;;
+	*)
+		usage
+		shift
+		exit 1
+		;;
+	esac
+done
+
+trap "signal" SIGPIPE
+${dsh} ${collective:-} -o "-H" -- -U "${user:-${default_user}}" -P "${password:-${default_password}}" -I "${interface:-${default_interface}}" "$@"
+trap - SIGPIPE
