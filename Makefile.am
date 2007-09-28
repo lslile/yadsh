@@ -1,4 +1,4 @@
-SUBDIRS = dsh dshbak
+SUBDIRS = dsh dshbak contrib
 		
 EXTRA_DIST = autogen.sh dsh.spec
 
