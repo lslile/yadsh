@@ -6,6 +6,7 @@ Changes in 1.23:
 o Clean up Automake dependency for dshbak
 o Fixed contrib Makefile.am
 o Change dsh.spec.in to allow RPM builds on RHEL5
+o Add header check for string.h in configure.in
 
 Changes in 1.22:
 o Finished committing changes to resolv coredump in 1.21
