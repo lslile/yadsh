@@ -1,4 +1,4 @@
-.\"  Copyright (c) 2004, 2005, Larry Lile <lile@users.sourceforge.net>
+.\"  Copyright (c) 2004-2007, Larry Lile <lile@users.sourceforge.net>
 .\"  All rights reserved.
 .\"
 .\"  Redistribution and use in source and binary forms, with or without
@@ -300,7 +300,7 @@ by IBM are named consistently.
 This man page is very incomplete.
 .El
 .Sh COPYRIGHT
-Copyright \(co 2005 Larry Lile <lile@users.sourceforge.net>
+Copyright \(co 2004-2007 Larry Lile <lile@users.sourceforge.net>
 .br
 This is free software; see the source for copying conditions.  There
 is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR

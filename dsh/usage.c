@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004, 2005, Larry Lile <lile@users.sourceforge.net>
+ * Copyright (c) 2004-2007, Larry Lile <lile@users.sourceforge.net>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
