@@ -6,7 +6,7 @@ Summary: Distributed Shell
 Name: dsh
 Version: %ver
 Release: %rel
-Copyright: BSD
+License: BSD
 Group: System Environment/Shells
 Source: http://prdownloads.sourceforge.net/yadsh/dsh-%{ver}.tar.gz
 BuildRoot: /var/tmp/dsh-%{PACKAGE_VERSION}-root
