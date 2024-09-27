@@ -1,5 +1,5 @@
 %define ver	@VERSION@
-%define	RELEASE	1
+%define	RELEASE	1%{?dist}
 %define rel	%{?CUSTOM_RELEASE} %{!?CUSTOM_RELEASE:%RELEASE}
 
 Summary: Distributed Shell
