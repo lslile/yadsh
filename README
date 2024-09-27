@@ -27,7 +27,7 @@ to make sure the requirement for Digest::MD5 is met.
 Copyright Notice
 ================
 
-  Copyright (c) 2004-2007, Larry Lile <lile@users.sourceforge.net>
+  Copyright (c) 2004-2024, Larry Lile <lile@users.sourceforge.net>
   All rights reserved.
 
   Redistribution and use in source and binary forms, with or without

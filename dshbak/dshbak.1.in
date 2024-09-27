@@ -1,4 +1,4 @@
-.\"  Copyright (c) 2004-2007, Larry Lile <lile@users.sourceforge.net>
+.\"  Copyright (c) 2004-2024, Larry Lile <lile@users.sourceforge.net>
 .\"  All rights reserved.
 .\"
 .\"  Redistribution and use in source and binary forms, with or without
@@ -94,7 +94,7 @@ first appeard in IBM's Parallel System Support Package for AIX.
 This man page is very incomplete.
 .El
 .Sh COPYRIGHT
-Copyright \(co 2004-2007 Larry Lile <lile@users.sourceforge.net>
+Copyright \(co 2004-2024 Larry Lile <lile@users.sourceforge.net>
 .br
 This is free software; see the source for copying conditions.  There
 is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR

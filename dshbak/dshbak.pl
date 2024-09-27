@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 #
-#  Copyright (c) 2004-2007, Larry Lile <lile@users.sourceforge.net>
+#  Copyright (c) 2004-2024, Larry Lile <lile@users.sourceforge.net>
 #  All rights reserved.
 # 
 #  Redistribution and use in source and binary forms, with or without
