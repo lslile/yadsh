@@ -1,8 +1,8 @@
 
 dnl Process this file with autoconf to produce a configure script.
-AC_INIT(README)
-AM_CONFIG_HEADER(config.h)
-AM_INIT_AUTOMAKE(dsh, 1.24)
+AC_INIT([dsh], [1.24])
+AC_CONFIG_HEADERS([config.h])
+AM_INIT_AUTOMAKE([foreign])
 
 dnl Checks for programs.
 AC_PROG_AWK
@@ -228,4 +228,5 @@ AC_FUNC_VPRINTF
 AC_CHECK_FUNCS(unsetenv putenv select strdup strerror readline add_history)
 
 AC_EXEEXT
-AC_OUTPUT(Makefile dsh/Makefile dshbak/Makefile contrib/Makefile dsh.spec)
+AC_CONFIG_FILES([Makefile dsh/Makefile dshbak/Makefile contrib/Makefile dsh.spec])
+AC_OUTPUT

@@ -1,5 +1,5 @@
 
-INCLUDES =	$(RL_CFLAGS)
+AM_CPPFLAGS =	$(RL_CFLAGS)
 
 bin_PROGRAMS =	dsh
 
