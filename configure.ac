@@ -127,6 +127,27 @@ if test "x$msg_readline" = "xfull"; then
 	AC_DEFINE(HAVE_READLINE, 1, [Define if we have readline support])
 	AC_DEFINE(HAVE_READLINE_EXTRA, 1, [Define if we have extra readline support])
 fi
+
+dnl The interactive prompt cancels the current line on Ctrl-C using
+dnl rl_event_hook / rl_done / rl_replace_line.  A thin readline (or an
+dnl editline shim) may lack these, so probe for them; without them the
+dnl prompt simply ignores Ctrl-C instead (see dsh.c).
+if test "x$msg_readline" != "xno"; then
+	AC_MSG_CHECKING(for readline line-cancel support)
+	ac_save_LIBS="$LIBS"
+	LIBS="$LIBS $RL_LIBS"
+	AC_TRY_LINK([
+#include <stdio.h>
+#include <readline/readline.h>], [
+	rl_event_hook = 0;
+	rl_done = 0;
+	rl_replace_line("", 0);],
+	[AC_DEFINE(HAVE_RL_LINE_CANCEL, 1,
+		[Define if readline provides rl_event_hook, rl_done and rl_replace_line])
+	 AC_MSG_RESULT(yes)],
+	[AC_MSG_RESULT(no)])
+	LIBS="$ac_save_LIBS"
+fi
 AC_SUBST(RL_CFLAGS)
 AC_SUBST(RL_LIBS)
 
@@ -244,7 +265,7 @@ dnl Checks for library functions.
 AC_FUNC_MMAP
 AC_TYPE_SIGNAL
 AC_FUNC_VPRINTF
-AC_CHECK_FUNCS(unsetenv putenv select strdup strerror readline add_history)
+AC_CHECK_FUNCS(unsetenv putenv select strdup strerror readline add_history read_history write_history append_history)
 
 AC_EXEEXT
 AC_CONFIG_FILES([Makefile dsh/Makefile dshbak/Makefile contrib/Makefile tests/Makefile dsh.spec])

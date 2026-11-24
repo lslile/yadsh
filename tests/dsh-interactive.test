@@ -1,0 +1,95 @@
+#!/bin/sh
+# dsh interactive shell: the "!cmd" local-exec escape and ~/.dsh_history
+# persistence.  Skips (exit 77) when dsh was built without readline, since the
+# interactive loop is then unavailable.
+set -e
+
+DSH=${DSH:-../dsh/dsh}
+
+# Use a throwaway HOME for every invocation so we never read or rewrite the
+# invoking user's real ~/.dsh_history.
+H=$(mktemp -d)
+trap 'rm -rf "$H"' EXIT
+HOME="$H"; export HOME
+
+# With no command, dsh -w <host> enters the interactive loop and reads lines
+# from stdin.  A build without readline prints a notice instead; skip there.
+probe=$(printf 'exit\n' | "$DSH" -w 127.0.0.1 2>&1 || true)
+case "$probe" in
+	*"readline not av"*)
+		echo "dsh built without readline; skipping"
+		exit 77
+		;;
+esac
+
+# "!cmd" runs locally through $SHELL -c.  Verify a side effect that echoed
+# input alone cannot produce: the command writes a file via a shell redirect.
+marker="$H/ran"
+printf '!echo RAN > "%s"\nexit\n' "$marker" | "$DSH" -w 127.0.0.1 >/dev/null 2>&1 || true
+{ [ -f "$marker" ] && grep -q '^RAN$' "$marker"; } || {
+	echo "!cmd did not execute locally (no side effect)"; exit 1
+}
+
+# A pre-existing, world-readable history must be tightened to owner-only
+# before new commands are written, and its existing entries preserved
+# (append, not clobber).
+printf '!echo preexisting\n' > "$H/.dsh_history"
+chmod 644 "$H/.dsh_history"
+printf '!echo one\n!echo two\nexit\n' | "$DSH" -w 127.0.0.1 >/dev/null 2>&1 || true
+[ -f "$H/.dsh_history" ] || { echo "history file not written"; exit 1; }
+grep -q 'echo one' "$H/.dsh_history" || {
+	echo "history missing the new command"; cat "$H/.dsh_history"; exit 1
+}
+grep -q 'echo preexisting' "$H/.dsh_history" || {
+	echo "history clobbered the existing entry"; cat "$H/.dsh_history"; exit 1
+}
+mode=$(ls -l "$H/.dsh_history" | cut -c1-10)
+case "$mode" in
+	-rw-------*) ;;
+	*) echo "history not owner-only after write: $mode"; exit 1 ;;
+esac
+
+# If the history path is a symlink, dsh must refuse to write rather than
+# follow it and clobber the target (O_NOFOLLOW).  Point it at a victim file
+# and confirm the victim is left untouched.
+rm -f "$H/.dsh_history"
+printf 'original-victim\n' > "$H/victim"
+ln -s "$H/victim" "$H/.dsh_history"
+printf '!echo leaked-via-symlink\nexit\n' | "$DSH" -w 127.0.0.1 >/dev/null 2>&1 || true
+if grep -q 'leaked-via-symlink' "$H/victim"; then
+	echo "history followed a symlink and wrote the target"; cat "$H/victim"; exit 1
+fi
+grep -q '^original-victim$' "$H/victim" || {
+	echo "symlink target was modified"; cat "$H/victim"; exit 1
+}
+rm -f "$H/.dsh_history" "$H/victim"
+
+# A hard link is not caught by O_NOFOLLOW; dsh must refuse it rather than
+# change the linked file's permissions or append to it.
+printf 'victim-data\n' > "$H/hlvictim"
+chmod 644 "$H/hlvictim"
+ln "$H/hlvictim" "$H/.dsh_history"
+printf '!echo via-hardlink\nexit\n' | "$DSH" -w 127.0.0.1 >/dev/null 2>&1 || true
+if grep -q 'via-hardlink' "$H/hlvictim"; then
+	echo "hard-linked file was written"; cat "$H/hlvictim"; exit 1
+fi
+vmode=$(ls -l "$H/hlvictim" | cut -c1-10)
+case "$vmode" in
+	-rw-r--r--*) ;;
+	*) echo "hard-linked file permissions changed: $vmode"; exit 1 ;;
+esac
+rm -f "$H/.dsh_history" "$H/hlvictim"
+
+# An existing history file with no trailing newline must not have the first
+# new command merged onto its final line.
+printf 'noeol-line' > "$H/.dsh_history"
+chmod 600 "$H/.dsh_history"
+printf '!echo appended-after\nexit\n' | "$DSH" -w 127.0.0.1 >/dev/null 2>&1 || true
+grep -qx 'noeol-line' "$H/.dsh_history" || {
+	echo "unterminated final line was merged"; cat "$H/.dsh_history"; exit 1
+}
+grep -qx '!echo appended-after' "$H/.dsh_history" || {
+	echo "appended command not kept on its own line"; cat "$H/.dsh_history"; exit 1
+}
+
+echo "dsh-interactive: OK"

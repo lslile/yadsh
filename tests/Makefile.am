@@ -11,6 +11,7 @@ AM_TESTS_ENVIRONMENT = \
 
 TESTS = \
 	dshbak.test \
-	dsh.test
+	dsh.test \
+	dsh-interactive.test
 
 EXTRA_DIST = $(TESTS) fake-rcmd
