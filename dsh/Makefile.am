@@ -1,4 +1,3 @@
-## $Id$
 
 INCLUDES =	$(RL_CFLAGS)
 

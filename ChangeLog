@@ -1,7 +1,5 @@
 Change Log file for dsh
 
-$Id$
-
 Changes in 1.23:
 o Clean up Automake dependency for dshbak
 o Fixed contrib Makefile.am
