@@ -135,7 +135,7 @@ proc_output(FILE *file, struct process *proc, char **buffer, int *length, int fl
 		if (proc->watchdog == -1)
 			print_host(file, "%-16s: killed by watchdog timer\n", proc->name);
 		if (WIFEXITED(proc->status))
-			print_host(file, "%-16s: exit %d\n", proc->name, WIFEXITED(proc->status));
+			print_host(file, "%-16s: exit %d\n", proc->name, WEXITSTATUS(proc->status));
 		if (WIFSIGNALED(proc->status))
 			print_host(file, "%-16s: killed (%d)\n", proc->name, WTERMSIG(proc->status));
 		if (WIFSTOPPED(proc->status))

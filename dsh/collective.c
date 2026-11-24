@@ -148,6 +148,8 @@ collective_add_member(char *name)
 			if (!strcmp(member->reliable, ptr->reliable))
 			{
 				debug_msg("collective_add_member - dropping duplicate\n");
+				free(member->name);
+				free(member->reliable);
 				free(member);
 				member = (struct member *)NULL;
 				return 0;

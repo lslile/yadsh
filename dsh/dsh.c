@@ -62,8 +62,6 @@ int		 signaled = 0,
 
 unsigned int	 collate = 0;
 
-extern int 	 errno;
-
 char		*__ypdomain = NULL;
 
 char		**remote_argv = (char **)NULL,
@@ -116,14 +114,14 @@ clean_string(char *string)
 	char	*s = string,
 		*t;
 
-	while (s && isspace(*s))
+	if (!s)
+		return s;
+
+	while (isspace(*s))
 		s++;
 
 	if (*s == '#')
 		return (char *)NULL;
-
-	if (!s)
-		return s;
 
 	t = s + strlen(s) - 1;
 	while (t > s && isspace(*t))
