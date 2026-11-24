@@ -220,6 +220,7 @@ main(int argc, char **argv)
 {
 	int		 ch,
 			 i,
+			 max_fanout = 0,
 			 dshtimeout = TIMEOUT;
 	char		*wcoll = (char *)NULL,
 			*fanout,
@@ -292,7 +293,8 @@ main(int argc, char **argv)
 		debug_msg("RLIMIT_NOFILE = %d (%d)\n",
 		    rl.rlim_cur, rl.rlim_max);
 		debug_msg("maximum fanout: %d\n", MAX_FANOUT(rl.rlim_cur));
-		/* XXX Reduce fflag if necessary */
+		if (rl.rlim_cur != RLIM_INFINITY && rl.rlim_cur > 3)
+			max_fanout = MAX_FANOUT(rl.rlim_cur);
 	}
 #endif /* defined(RLIMIT_NOFILE) */
 
@@ -377,6 +379,14 @@ main(int argc, char **argv)
 				exit(!usage(argv[0]));
 				break;
 		}
+	}
+
+	/* Cap fanout to what RLIMIT_NOFILE can support (3 pipe fds per child). */
+	if (max_fanout > 0 && fflag > max_fanout)
+	{
+		print_error("fanout %d exceeds RLIMIT_NOFILE capacity; reducing to %d\n",
+		    fflag, max_fanout);
+		fflag = max_fanout;
 	}
 
 	argc -= optind;
