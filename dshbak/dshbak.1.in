@@ -35,7 +35,21 @@
 .Op Fl c
 .Pp
 .Sh DESCRIPTION
-.Nm Dshbak
+.Nm
+reads the output of
+.Xr dsh 1
+from standard input as a series of
+.Ql host : line
+records and reformats it grouped by host, printing each host's output
+beneath a header that names the host.
+Without
+.Fl c
+each host is shown in its own block, in sorted order.
+.Pp
+The header rules are drawn to the width of the terminal when standard
+output is a terminal; when standard output is a pipe or a file they are
+drawn to a fixed 78 columns, so that redirected output is stable and
+reproducible.
 .Sh OPTIONS
 .Bl -tag -width Ds
 .It Fl c

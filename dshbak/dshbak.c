@@ -12,13 +12,16 @@
  *  as the original dshbak.pl did.
  *
  *  This is a C reimplementation of the original dshbak.pl.  It differs from
- *  the perl in three deliberate ways, all of them fixes:
+ *  the perl in four deliberate ways, all of them fixes:
  *    - collation compares the actual output bytes, not an MD5 digest, so two
  *      hosts can never be grouped together by a hash collision;
  *    - the order of collated blocks is deterministic (sorted by the first
  *      host in each group) rather than perl hash order;
  *    - the progress dots for very large inputs go to stderr, so a piped
- *      stdout stays pure data.
+ *      stdout stays pure data;
+ *    - the header rules track the terminal width when stdout is a tty (the
+ *      perl hardcoded 72/78 columns); piped or redirected output keeps the
+ *      fixed 78-column default, so it stays stable and reproducible.
  *
  *  Copyright (c) 2004-2026, Larry Lile <lile@users.sourceforge.net>
  *  All rights reserved.
@@ -45,6 +48,8 @@
  *  OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  *  SUCH DAMAGE.
  */
+
+#include <sys/ioctl.h>
 
 #include <ctype.h>
 #include <stdio.h>
@@ -73,6 +78,15 @@ static struct host	 *buckets[NBUCKETS];
 static struct host	**hosts;	/* every host, in first-seen order */
 static size_t		  nhosts;
 static size_t		  hostcap;
+
+/*
+ * Width of the header rules.  When stdout is a terminal we fill its width;
+ * otherwise (a pipe or file) we use a fixed default so redirected output is
+ * stable and reproducible.
+ */
+#define DEFAULT_WIDTH	78
+#define MIN_WIDTH	10
+static size_t		  g_width = DEFAULT_WIDTH;
 
 /* A collation group is a run of equal-signature hosts in the sorted array. */
 struct grp {
@@ -280,8 +294,8 @@ build_sig(struct host *p)
 
 /*
  * Build the host line for a collated block: names sorted, each padded to the
- * widest name plus two trailing spaces, wrapping near column 78.  This mirrors
- * the perl layout exactly, including trailing padding.  Returns a malloc'd
+ * widest name plus two trailing spaces, wrapping near the output width.  This
+ * mirrors the perl layout exactly, including trailing padding.  Returns a malloc'd
  * buffer and its length (host names may contain arbitrary bytes).
  */
 static char *
@@ -299,7 +313,8 @@ build_hostline(struct host *const *members, size_t n, size_t *outlen)
 	for (i = 0; i < n; i++) {
 		size_t nl = members[i]->name.len;
 		size_t pad = (longest - nl) + 2;
-		size_t need = used + 1 + nl + pad;	/* maybe '\n', then add */
+		size_t add = nl + pad;		/* this entry's column width: longest + 2 */
+		size_t need = used + 1 + add;	/* maybe a '\n', then the entry */
 
 		if (need > cap) {
 			while (need > cap)
@@ -307,7 +322,13 @@ build_hostline(struct host *const *members, size_t n, size_t *outlen)
 			s = xrealloc(s, cap);
 		}
 
-		if (width + longest > 78) {
+		/*
+		 * Wrap before this entry only if the row already holds one and
+		 * the entry, padding included, would overflow the width.  A lone
+		 * entry wider than the width still goes on its own row, with no
+		 * leading blank line.
+		 */
+		if (width > 0 && width + add > g_width) {
 			s[used++] = '\n';
 			width = 0;
 		}
@@ -316,11 +337,23 @@ build_hostline(struct host *const *members, size_t n, size_t *outlen)
 		used += nl;
 		memset(s + used, ' ', pad);
 		used += pad;
-		width += nl + pad;
+		width += add;
 	}
 
 	*outlen = used;
 	return s;
+}
+
+static size_t
+output_width(void)
+{
+	struct winsize ws;
+
+	if (isatty(STDOUT_FILENO) &&
+	    ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == 0 && ws.ws_col > 0)
+		return (size_t)ws.ws_col < MIN_WIDTH ? MIN_WIDTH
+		    : (size_t)ws.ws_col;
+	return DEFAULT_WIDTH;
 }
 
 static void
@@ -330,12 +363,12 @@ print_block(const char *hostline, size_t hllen, const struct blob *lines,
 	size_t i;
 
 	fputs("HOSTS ", stdout);
-	for (i = 0; i < 72; i++)
+	for (i = 0; i + 6 < g_width; i++)	/* "HOSTS " is 6 columns wide */
 		putchar('-');
 	putchar('\n');
 	fwrite(hostline, 1, hllen, stdout);
 	putchar('\n');
-	for (i = 0; i < 78; i++)
+	for (i = 0; i < g_width; i++)
 		putchar('-');
 	putchar('\n');
 	for (i = 0; i < n; i++) {
@@ -368,6 +401,8 @@ main(int argc, char **argv)
 			return 1;
 		}
 	}
+
+	g_width = output_width();
 
 	while ((len = getline(&line, &cap, stdin)) != -1) {
 		size_t llen = (size_t)len;

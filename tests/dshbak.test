@@ -16,6 +16,15 @@ if [ "$n" -ne 3 ]; then
 fi
 printf '%s\n' "$plain" | grep -q '^beta$' || { echo "plain: missing beta output"; exit 1; }
 
+# Width: piped (non-tty) output uses the fixed 78-column default: the rule is
+# 78 dashes and the HOSTS line is "HOSTS " plus 72 dashes.
+printf '%s\n' "$plain" | grep -qE '^-{78}$' || {
+	echo "width: expected a 78-dash rule in piped output"; printf '%s\n' "$plain"; exit 1
+}
+printf '%s\n' "$plain" | grep -qE '^HOSTS -{72}$' || {
+	echo "width: expected 'HOSTS ' + 72 dashes in piped output"; printf '%s\n' "$plain"; exit 1
+}
+
 # -c: one block per unique output (alpha, beta -> 2 blocks), with host1 and
 # host2 collated onto the same host line.
 coll=$(printf '%s\n' "$input" | "$DSHBAK" -c)
