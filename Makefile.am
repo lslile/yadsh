@@ -1,4 +1,4 @@
-SUBDIRS = dsh dshbak contrib
+SUBDIRS = dsh dshbak contrib tests
 		
 EXTRA_DIST = autogen.sh dsh.spec git-version-gen
 
