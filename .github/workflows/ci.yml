@@ -1,8 +1,12 @@
 name: CI
 
 # Broad lane: public, no secrets. Builds yadsh from the autotools sources.
-# Starts with a Linux build; the RHEL matrix and the *BSD targets are added
-# on top of this once it is green.
+# Ubuntu + an Enterprise-Linux matrix. The *BSD targets are added later.
+#
+# EL7 is intentionally not here: GitHub's actions run on Node 20, which needs
+# glibc 2.28+, while RHEL/CentOS 7 ships glibc 2.17, so the action runner
+# cannot execute inside an EL7 container. EL7 is covered by the rh7-build host
+# in the local pre-push gate instead.
 
 on:
   push:
@@ -40,3 +44,33 @@ jobs:
           cd _build
           ../configure
           make
+
+  build-el:
+    name: Build (${{ matrix.image }})
+    runs-on: ubuntu-latest
+    container: ${{ matrix.image }}
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - almalinux:8
+          - almalinux:9
+          - almalinux:10
+    steps:
+      - name: Install git (needed by the checkout action)
+        run: dnf -y install git
+
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: dnf -y install gcc make autoconf automake diffutils
+
+      - name: Regenerate the build system
+        run: autoreconf -fi
+
+      - name: Configure
+        run: ./configure
+
+      - name: Build
+        run: make
