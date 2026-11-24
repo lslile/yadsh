@@ -228,14 +228,14 @@ proc_spawn(struct process *proc)
 		/* set descriptors to non-blocking XXX */
 		if (!((fdflags = fcntl(proc->pstdout, F_GETFL, 0)) < 0))
 		{
-			if ((fcntl(proc->pstdout, F_SETFL, fdflags | O_NDELAY)) < 0)
+			if ((fcntl(proc->pstdout, F_SETFL, fdflags | O_NONBLOCK)) < 0)
 				perror("proc_spawn() fcntl stdout");
 		} else {
 			perror("proc_spawn() fcntl stdout");
 		}
 		if (!((fdflags = fcntl(proc->pstderr, F_GETFL, 0)) < 0))
 		{
-			if ((fcntl(proc->pstderr, F_SETFL, fdflags | O_NDELAY)) < 0)
+			if ((fcntl(proc->pstderr, F_SETFL, fdflags | O_NONBLOCK)) < 0)
 				perror("proc_spawn() fcntl stderr");
 		} else {
 			perror("proc_spawn() fcntl stderr");
