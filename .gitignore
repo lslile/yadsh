@@ -41,3 +41,6 @@ Makefile.in
 *~
 *.swp
 .DS_Store
+
+# --- generated version stamp ---
+/.tarball-version

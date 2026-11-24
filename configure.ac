@@ -1,6 +1,6 @@
 
 dnl Process this file with autoconf to produce a configure script.
-AC_INIT([dsh], [1.24])
+AC_INIT([dsh], [m4_esyscmd_s([sh ./git-version-gen .tarball-version])])
 AC_CONFIG_HEADERS([config.h])
 AM_INIT_AUTOMAKE([foreign])
 

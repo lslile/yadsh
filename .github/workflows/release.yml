@@ -1,0 +1,110 @@
+name: Release
+
+# Triggered by pushing a semver tag (vX.Y.Z). The tag is the single source of
+# truth for the version (configure.ac derives it via git-version-gen). This
+# builds the dist tarball, builds EL RPMs from it, and publishes all of them to
+# a GitHub Release. No secrets: everything uses the built-in GITHUB_TOKEN.
+
+on:
+  push:
+    tags:
+      - 'v[0-9]*'
+
+permissions:
+  contents: write   # create the GitHub Release and upload assets
+
+jobs:
+  tarball:
+    name: Tarball + create release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out (full history for git describe)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential autoconf automake
+
+      - name: Build the distribution tarball
+        run: |
+          autoreconf -fi
+          ./configure
+          make dist
+          ls -l dsh-*.tar.gz
+
+      - name: Verify the tarball version matches the tag
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          test -f "dsh-${tag}.tar.gz" || { echo "tarball does not match tag ${GITHUB_REF_NAME}"; ls dsh-*.tar.gz; exit 1; }
+
+      - name: Create the GitHub Release (with the tarball)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            --title "${GITHUB_REF_NAME}" \
+            --generate-notes \
+            dsh-*.tar.gz
+
+      - name: Stash the tarball for the RPM jobs
+        uses: actions/upload-artifact@v4
+        with:
+          name: tarball
+          path: dsh-*.tar.gz
+
+  rpm:
+    name: RPM (${{ matrix.image }})
+    needs: tarball
+    runs-on: ubuntu-latest
+    container: ${{ matrix.image }}
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - almalinux:8
+          - almalinux:9
+          - almalinux:10
+    steps:
+      - name: Install RPM build dependencies
+        run: dnf -y install rpm-build gcc make autoconf automake readline-devel diffutils
+
+      - name: Fetch the tarball
+        uses: actions/download-artifact@v4
+        with:
+          name: tarball
+
+      - name: Build the RPMs
+        run: |
+          rpmbuild -tb dsh-*.tar.gz
+          mkdir -p out
+          find "$HOME/rpmbuild/RPMS" -name '*.rpm' -exec cp {} out/ \;
+          ls -l out
+
+      - name: Stash the RPMs
+        uses: actions/upload-artifact@v4
+        with:
+          name: rpms-${{ matrix.image }}
+          path: out/*.rpm
+
+  publish-rpms:
+    name: Attach RPMs to the release
+    needs: rpm
+    runs-on: ubuntu-latest
+    steps:
+      - name: Collect all RPMs
+        uses: actions/download-artifact@v4
+        with:
+          pattern: rpms-*
+          merge-multiple: true
+          path: rpms
+
+      - name: Upload the RPMs to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          ls -l rpms
+          gh release upload "${GITHUB_REF_NAME}" rpms/*.rpm --clobber

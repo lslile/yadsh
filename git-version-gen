@@ -1,0 +1,46 @@
+#!/bin/sh
+# git-version-gen - print the project version for the autotools build.
+#
+# Copyright (c) 2026, Larry Lile.  BSD 2-Clause (see LICENSE).
+#
+# Usage: git-version-gen [TARBALL-VERSION-FILE]
+#
+# The version is resolved, in order, from:
+#   1. TARBALL-VERSION-FILE, if it exists (shipped inside dist tarballs so a
+#      tarball that is re-bootstrapped still knows its release version).
+#   2. `git describe` against vX.Y.Z tags, in a git checkout.
+#   3. a 0.0.0 placeholder plus the short commit, before the first tag.
+#   4. UNKNOWN, as a last resort (no tarball file and no git).
+#
+# Output carries no leading "v".  Examples:
+#   v1.23.0             -> 1.23.0
+#   v1.23.0-5-g1a2b3c   -> 1.23.0.5.g1a2b3c
+#   (dirty tree)        -> ... .dirty
+
+set -eu
+
+tarball_version_file=${1:-.tarball-version}
+
+if test -f "$tarball_version_file"; then
+	v=`sed -n '1p' "$tarball_version_file" | tr -d '
+'`
+	if test -n "$v"; then
+		printf '%s\n' "$v"
+		exit 0
+	fi
+fi
+
+if v=`git describe --tags --match 'v[0-9]*' --abbrev=7 --dirty=.dirty 2>/dev/null`; then
+	v=${v#v}
+	# turn the "-<N>-g<hash>" describe suffix into ".<N>.g<hash>"
+	v=`printf '%s' "$v" | sed -e 's/-\([0-9][0-9]*\)-g/.\1.g/'`
+	printf '%s\n' "$v"
+	exit 0
+fi
+
+if h=`git rev-parse --short=7 HEAD 2>/dev/null`; then
+	printf '0.0.0.g%s\n' "$h"
+	exit 0
+fi
+
+printf 'UNKNOWN\n'
