@@ -37,6 +37,9 @@ jobs:
       - name: Build
         run: make
 
+      - name: Test
+        run: make check
+
       - name: Out-of-tree (VPATH) build
         run: |
           make distclean

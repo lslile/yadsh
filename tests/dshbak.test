@@ -1,0 +1,30 @@
+#!/bin/sh
+# dshbak: formatting and -c collation of "host: line" input.
+set -e
+
+DSHBAK=${DSHBAK:-../dshbak/dshbak}
+
+input='host1: alpha
+host2: alpha
+host3: beta'
+
+# Plain: one "HOSTS" block per host (3 hosts -> 3 blocks).
+plain=$(printf '%s\n' "$input" | "$DSHBAK")
+n=$(printf '%s\n' "$plain" | grep -c '^HOSTS ')
+if [ "$n" -ne 3 ]; then
+	echo "plain: expected 3 HOSTS blocks, got $n"; printf '%s\n' "$plain"; exit 1
+fi
+printf '%s\n' "$plain" | grep -q '^beta$' || { echo "plain: missing beta output"; exit 1; }
+
+# -c: one block per unique output (alpha, beta -> 2 blocks), with host1 and
+# host2 collated onto the same host line.
+coll=$(printf '%s\n' "$input" | "$DSHBAK" -c)
+n=$(printf '%s\n' "$coll" | grep -c '^HOSTS ')
+if [ "$n" -ne 2 ]; then
+	echo "-c: expected 2 HOSTS blocks, got $n"; printf '%s\n' "$coll"; exit 1
+fi
+printf '%s\n' "$coll" | grep -Eq 'host1.*host2|host2.*host1' || {
+	echo "-c: host1/host2 were not collated together"; printf '%s\n' "$coll"; exit 1
+}
+
+echo "dshbak: OK"

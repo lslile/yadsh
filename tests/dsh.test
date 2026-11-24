@@ -1,0 +1,33 @@
+#!/bin/sh
+# dsh: usage, and fan-out across hosts using a fake remote command (no cluster).
+set -e
+
+DSH=${DSH:-../dsh/dsh}
+DSHBAK=${DSHBAK:-../dshbak/dshbak}
+FAKE=${FAKE_RCMD:-./fake-rcmd}
+
+# Three distinct loopback addresses as the "hosts" (they resolve without DNS and
+# are not de-duplicated). RCMD_PGM=secrshell routes dsh through DSH_REMOTE_CMD.
+HOSTS=127.0.0.1,127.0.0.2,127.0.0.3
+run_dsh() {
+	RCMD_PGM=secrshell DSH_REMOTE_CMD="$FAKE" "$DSH" -w "$HOSTS" "$@"
+}
+
+# Usage exits cleanly.
+"$DSH" -h >/dev/null
+
+# Fan-out: each "host" runs `echo ok` locally; dsh tags one line per host.
+out=$(run_dsh echo ok)
+n=$(printf '%s\n' "$out" | grep -c ': ok$')
+if [ "$n" -ne 3 ]; then
+	echo "fan-out: expected 3 host outputs, got $n"; printf '%s\n' "$out"; exit 1
+fi
+
+# End to end through dshbak -c: identical output collates into a single block.
+coll=$(run_dsh echo ok | "$DSHBAK" -c)
+b=$(printf '%s\n' "$coll" | grep -c '^HOSTS ')
+if [ "$b" -ne 1 ]; then
+	echo "collate: expected 1 block, got $b"; printf '%s\n' "$coll"; exit 1
+fi
+
+echo "dsh: OK"

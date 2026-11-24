@@ -1,0 +1,7 @@
+#!/bin/sh
+# Test stand-in for the remote shell (rsh/ssh). dsh invokes the remote command
+# as `<rcmd> HOST command [args...]`; this drops the host argument and runs the
+# command locally, so the fan-out, per-host tagging and collation can be tested
+# without any real remote hosts.
+shift
+exec "$@"
