@@ -44,10 +44,14 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${GITHUB_REF_NAME}" \
-            --title "${GITHUB_REF_NAME}" \
-            --generate-notes \
-            dsh-*.tar.gz
+          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+            gh release upload "${GITHUB_REF_NAME}" dsh-*.tar.gz --clobber
+          else
+            gh release create "${GITHUB_REF_NAME}" \
+              --title "${GITHUB_REF_NAME}" \
+              --generate-notes \
+              dsh-*.tar.gz
+          fi
 
       - name: Stash the tarball for the RPM jobs
         uses: actions/upload-artifact@v4
@@ -63,10 +67,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        image:
-          - almalinux:8
-          - almalinux:9
-          - almalinux:10
+        include:
+          - { image: 'almalinux:8',  tag: el8 }
+          - { image: 'almalinux:9',  tag: el9 }
+          - { image: 'almalinux:10', tag: el10 }
     steps:
       - name: Install RPM build dependencies
         run: dnf -y install rpm-build gcc make autoconf automake readline-devel diffutils
@@ -86,7 +90,7 @@ jobs:
       - name: Stash the RPMs
         uses: actions/upload-artifact@v4
         with:
-          name: rpms-${{ matrix.image }}
+          name: rpms-${{ matrix.tag }}
           path: out/*.rpm
 
   publish-rpms:
