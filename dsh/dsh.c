@@ -57,8 +57,7 @@ char		*lflag = (char *)NULL,
 		*oflag = (char *)NULL,
 		*Yflag = (char *)NULL;
 
-int		 signaled = 0,
-		 sigcount = 0;
+volatile sig_atomic_t signaled = 0, sigcount = 0;
 
 unsigned int	 collate = 0;
 
@@ -98,14 +97,25 @@ push_remote_argv(char *argument)
 void
 sig_handler(int signum)
 {
-	debug_msg("sig_handler(%d)\n", signum);
 	signaled = signum;
-	sigcount++;
-	if (sigcount > 5)
+	if (++sigcount > 5)
 	{
-		print_error("Something must be hung, exiting...\n");
-		exit(1);
+		static const char msg[] = "Something must be hung, exiting...\n";
+		write(STDERR_FILENO, msg, sizeof(msg) - 1);
+		_exit(1);
 	}
+}
+
+static void
+set_sig(int sig, void (*handler)(int))
+{
+	struct sigaction sa;
+
+	sigemptyset(&sa.sa_mask);
+	sa.sa_flags = SA_RESTART;
+	sa.sa_handler = handler;
+	if (sigaction(sig, &sa, NULL) < 0)
+		perror("sigaction");
 }
 
 char *
@@ -462,8 +472,8 @@ main(int argc, char **argv)
 	if (qflag)
 		return collective_display();
 
-	signal(SIGINT,  &sig_handler);
-	signal(SIGQUIT, &sig_handler);
+	set_sig(SIGINT, sig_handler);
+	set_sig(SIGQUIT, sig_handler);
 	signal(SIGABRT, &sig_handler);
 
 	if (vflag)
@@ -479,9 +489,9 @@ main(int argc, char **argv)
 		{
 			char *s;
 
-			signal(SIGINT,  SIG_DFL);
-			signal(SIGQUIT, SIG_DFL);
-			signal(SIGABRT, SIG_DFL);
+			set_sig(SIGINT, SIG_DFL);
+			set_sig(SIGQUIT, SIG_DFL);
+			set_sig(SIGABRT, SIG_DFL);
 			
 			if ((line = readline(prompt)) == NULL)
 				break;
@@ -520,9 +530,9 @@ main(int argc, char **argv)
 		rc = execute_command(0, hn_method, dshtimeout, remote_argc, remote_argv);
 	}
 
-	signal(SIGINT,  SIG_DFL);
-	signal(SIGQUIT, SIG_DFL);
-	signal(SIGABRT, SIG_DFL);
+	set_sig(SIGINT, SIG_DFL);
+	set_sig(SIGQUIT, SIG_DFL);
+	set_sig(SIGABRT, SIG_DFL);
 
 	for (i = 0; i < remote_argc; i++)
 		if (remote_argv[i])

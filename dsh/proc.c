@@ -28,13 +28,13 @@
 
 #include "includes.h"
 
-int	sigchld = -1;
+volatile sig_atomic_t	sigchld = -1;
 
 void
 proc_sig_child(int signo)
 {
+	(void)signo;
 	sigchld++;
-	debug_msg("child exited (%x)\n", signo);
 }
 
 int
@@ -192,7 +192,13 @@ proc_spawn(struct process *proc)
 
 	if (sigchld == -1)
 	{
-		signal(SIGCHLD, &proc_sig_child);
+		struct sigaction sa;
+
+		sigemptyset(&sa.sa_mask);
+		sa.sa_flags = SA_RESTART;
+		sa.sa_handler = proc_sig_child;
+		if (sigaction(SIGCHLD, &sa, NULL) < 0)
+			perror("sigaction");
 		sigchld = 0;
 	}
 
