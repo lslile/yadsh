@@ -12,6 +12,7 @@
 /depcomp
 /install-sh
 /missing
+/test-driver
 /stamp-h1
 Makefile
 Makefile.in

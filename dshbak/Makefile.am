@@ -1,22 +1,12 @@
+bin_PROGRAMS = dshbak
 
-bin_SCRIPTS = dshbak
-
-EXTRA_DIST = dshbak.pl dshbak.1.in
-
-BUILT_SOURCES = dshbak
+dshbak_SOURCES = dshbak.c
 
 man_MANS = dshbak.1
-		
-CLEANFILES = dshbak dshbak.1
 
-## This is a temporary placeholder until I either
-## setup the Makefile.PL magic or autoconf the perl
-## bits
-dshbak: dshbak.pl
-	rm -f dshbak
-	cp $(srcdir)/dshbak.pl dshbak.tmp
-	mv dshbak.tmp dshbak
-	chmod +x dshbak
+EXTRA_DIST = dshbak.1.in
+
+CLEANFILES = dshbak.1
 
 edit = sed \
         -e 's,@bindir\@,$(bindir),g' \
