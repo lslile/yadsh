@@ -136,3 +136,38 @@ jobs:
             ./configure
             gmake
             gmake check
+
+  sanitizers:
+    name: Sanitizers (${{ matrix.image }})
+    runs-on: ubuntu-latest
+    container: ${{ matrix.image }}
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - almalinux:9
+          - almalinux:10
+    steps:
+      - name: Install git (needed by the checkout action)
+        run: dnf -y install git
+
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: dnf -y install gcc make autoconf automake diffutils grep libasan libubsan
+
+      - name: Regenerate the build system
+        run: autoreconf -fi
+
+      - name: Configure with ASan + UBSan
+        run: ./configure --enable-asan --enable-ubsan
+
+      - name: Build
+        run: make
+
+      - name: Test under ASan + UBSan
+        run: make check
+        env:
+          ASAN_OPTIONS: abort_on_error=1
+          UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1

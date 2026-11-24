@@ -10,6 +10,25 @@ AC_PROG_CC
 AC_PROG_INSTALL
 AC_PROG_LN_S
 
+dnl Optional sanitizer builds (developer / CI use).  --enable-asan and
+dnl --enable-ubsan add the sanitizer flags to this project's own targets
+dnl only, leaving the user's CFLAGS intact.  ASan and ThreadSanitizer are
+dnl mutually exclusive; TSan arrives with the threaded engine (T9).
+AC_ARG_ENABLE([asan],
+  [AS_HELP_STRING([--enable-asan], [build with AddressSanitizer (-fsanitize=address)])],
+  [enable_asan=$enableval], [enable_asan=no])
+AC_ARG_ENABLE([ubsan],
+  [AS_HELP_STRING([--enable-ubsan], [build with UndefinedBehaviorSanitizer (-fsanitize=undefined)])],
+  [enable_ubsan=$enableval], [enable_ubsan=no])
+SANITIZE_FLAGS=
+AS_IF([test "x$enable_asan" = xyes],
+  [SANITIZE_FLAGS="$SANITIZE_FLAGS -fsanitize=address"])
+AS_IF([test "x$enable_ubsan" = xyes],
+  [SANITIZE_FLAGS="$SANITIZE_FLAGS -fsanitize=undefined"])
+AS_IF([test -n "$SANITIZE_FLAGS"],
+  [SANITIZE_FLAGS="$SANITIZE_FLAGS -fno-omit-frame-pointer -g"])
+AC_SUBST([SANITIZE_FLAGS])
+
 dnl Checks for libraries.
 AC_SEARCH_LIBS(inet_aton, resolv)
 AC_SEARCH_LIBS(gethostbyname, nsl)
