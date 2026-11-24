@@ -238,7 +238,7 @@ is_status_host(const char *host, size_t len)
 static int
 usage(void)
 {
-	fputs("dshbak [-c]\n", stdout);
+	fputs("dshbak [-c | -x]\n", stdout);
 	return 1;
 }
 
@@ -380,7 +380,7 @@ print_block(const char *hostline, size_t hllen, const struct blob *lines,
 int
 main(int argc, char **argv)
 {
-	int opt_c = 0, c;
+	int opt_c = 0, opt_x = 0, c;
 	char *line = NULL;
 	size_t cap = 0;
 	ssize_t len;
@@ -388,10 +388,13 @@ main(int argc, char **argv)
 	size_t i;
 
 	opterr = 0;
-	while ((c = getopt(argc, argv, "ch")) != -1) {
+	while ((c = getopt(argc, argv, "cxh")) != -1) {
 		switch (c) {
 		case 'c':
 			opt_c = 1;
+			break;
+		case 'x':
+			opt_x = 1;
 			break;
 		case 'h':
 			usage();
@@ -400,6 +403,11 @@ main(int argc, char **argv)
 			usage();
 			return 1;
 		}
+	}
+
+	if (opt_c && opt_x) {		/* -c and -x are mutually exclusive */
+		usage();
+		return 1;
 	}
 
 	g_width = output_width();
@@ -431,8 +439,8 @@ main(int argc, char **argv)
 
 		output = line + sep + 2;
 		olen = llen - (sep + 2);
-		if (olen == 0)
-			continue;		/* no output on this line */
+		if (olen == 0 && !opt_x)
+			continue;		/* drop blank output, but -x prefixes every line */
 
 		if (is_status_host(line, hlen))
 			continue;
@@ -480,6 +488,23 @@ main(int argc, char **argv)
 			free(hl);
 		}
 		free(groups);
+	} else if (opt_x) {
+		/*
+		 * Compact mode: no per-host headers.  Emit each output line as
+		 * "host: line", hosts sorted by name, lines in arrival order.
+		 */
+		qsort(hosts, nhosts, sizeof(*hosts), cmp_name);
+		for (i = 0; i < nhosts; i++) {
+			struct host *h = hosts[i];
+			size_t k;
+
+			for (k = 0; k < h->nlines; k++) {
+				fwrite(h->name.p, 1, h->name.len, stdout);
+				fputs(": ", stdout);
+				fwrite(h->lines[k].p, 1, h->lines[k].len, stdout);
+				putchar('\n');
+			}
+		}
 	} else {
 		qsort(hosts, nhosts, sizeof(*hosts), cmp_name);
 		for (i = 0; i < nhosts; i++)

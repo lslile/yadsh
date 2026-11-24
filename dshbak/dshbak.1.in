@@ -32,7 +32,7 @@
 .Nd backend formatting filter for distributed shell
 .Sh SYNOPSIS
 .Nm
-.Op Fl c
+.Op Fl c | Fl x
 .Pp
 .Sh DESCRIPTION
 .Nm
@@ -55,6 +55,13 @@ reproducible.
 .It Fl c
 Collapses identical output from multiple hosts so that it is only
 displayed once.
+.It Fl x
+Compact output: omit the per-host headers and prefix each output line
+with
+.Ql host :
+and a space, with hosts sorted by name.
+May not be combined with
+.Fl c .
 .El
 .Sh EXAMPLES
 .Bd -literal
@@ -92,10 +99,20 @@ slocombe
 ------------------------------------------------------------------
 Linux 2.4.21-27.0.2.ELsmp i686
 .Ed
+.Pp
+.Bd -literal
+$ dsh -w grainger,peacock -- uname -s | dshbak -x
+grainger: Linux
+peacock: Linux
+.Ed
 .Sh DIAGNOSTICS
 .Sh COMPATIBILITY
 .Nm Dshbak
 is compatible with the IBM PSSP
+.Nm
+command; the
+.Fl x
+option matches the later IBM DSM
 .Nm
 command.
 .Sh AUTHORS

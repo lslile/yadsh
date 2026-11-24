@@ -36,4 +36,34 @@ printf '%s\n' "$coll" | grep -Eq 'host1.*host2|host2.*host1' || {
 	echo "-c: host1/host2 were not collated together"; printf '%s\n' "$coll"; exit 1
 }
 
+# -x: compact mode. No HOSTS headers; each line printed as "host: line", hosts
+# sorted by name, lines in arrival order within a host.
+input_x='host2: b1
+host1: a1
+host2: b2
+host1: a2'
+want_x='host1: a1
+host1: a2
+host2: b1
+host2: b2'
+got_x=$(printf '%s\n' "$input_x" | "$DSHBAK" -x)
+if [ "$got_x" != "$want_x" ]; then
+	echo "-x: unexpected output"; echo "--- want ---"; printf '%s\n' "$want_x"
+	echo "--- got ---"; printf '%s\n' "$got_x"; exit 1
+fi
+printf '%s\n' "$got_x" | grep -q '^HOSTS ' && { echo "-x: should emit no HOSTS headers"; exit 1; }
+
+# -x prefixes every line, including a blank one (dsh formats a blank remote
+# line as "host: "); the header modes drop blanks, but -x must keep them.
+blank_x=$(printf 'h1: one\nh1: \nh1: two\n' | "$DSHBAK" -x)
+nb=$(printf '%s\n' "$blank_x" | wc -l | tr -d ' ')
+if [ "$nb" -ne 3 ]; then
+	echo "-x: expected 3 lines incl. the blank, got $nb"; printf '%s\n' "$blank_x"; exit 1
+fi
+
+# -c and -x are mutually exclusive: combining them is an error.
+if printf 'host1: a\n' | "$DSHBAK" -c -x >/dev/null 2>&1; then
+	echo "-c -x: expected a non-zero exit, got success"; exit 1
+fi
+
 echo "dshbak: OK"
