@@ -1,7 +1,7 @@
 name: CI
 
 # Broad lane: public, no secrets. Builds yadsh from the autotools sources.
-# Ubuntu + an Enterprise-Linux matrix. The *BSD targets are added later.
+# Ubuntu, an Enterprise-Linux matrix, and a *BSD matrix.
 #
 # EL7 is intentionally not here: GitHub's actions run on Node 20, which needs
 # glibc 2.28+, while RHEL/CentOS 7 ships glibc 2.17, so the action runner
@@ -74,3 +74,56 @@ jobs:
 
       - name: Build
         run: make
+
+  build-freebsd:
+    name: Build (FreeBSD)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+      - name: Build in a FreeBSD VM
+        uses: vmactions/freebsd-vm@v1
+        with:
+          usesh: true
+          prepare: |
+            pkg install -y autoconf automake gmake
+          run: |
+            autoreconf -fi
+            ./configure
+            gmake
+
+  build-openbsd:
+    name: Build (OpenBSD)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+      - name: Build in an OpenBSD VM
+        uses: vmactions/openbsd-vm@v1
+        with:
+          usesh: true
+          prepare: |
+            pkg_add -I gmake autoconf%2.72 automake%1.16
+          run: |
+            export AUTOCONF_VERSION=2.72 AUTOMAKE_VERSION=1.16
+            autoreconf -fi
+            ./configure
+            gmake
+
+  build-netbsd:
+    name: Build (NetBSD)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+      - name: Build in a NetBSD VM
+        uses: vmactions/netbsd-vm@v1
+        with:
+          usesh: true
+          prepare: |
+            pkg_add autoconf automake gmake
+          run: |
+            export PATH=/usr/pkg/bin:$PATH
+            autoreconf -fi
+            ./configure
+            gmake
