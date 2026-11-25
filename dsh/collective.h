@@ -29,6 +29,8 @@
 #ifndef _collective_h
 #define _collective_h
 
+struct invocation;
+
 typedef struct member
 {
         char            *name,
@@ -38,12 +40,12 @@ typedef struct member
                         *next;
 } member_t;
 
-int collective_parse(char *, char);
-int collective_add_member(char *);
+int collective_parse(const struct invocation *, char *, char);
+int collective_add_member(const struct invocation *, char *);
 int collective_drop_member(struct member *);
-int collective_display(void);
-int collective_add_file(FILE *);
-int collective_add_stdin(FILE *);
+int collective_display(const struct invocation *);
+int collective_add_file(const struct invocation *, FILE *);
+int collective_add_stdin(const struct invocation *, FILE *);
 struct member *collective_get_next(struct member *);
 void free_collective(void);
 

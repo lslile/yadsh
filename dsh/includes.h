@@ -77,6 +77,7 @@
 #  endif /* HAVE_READLINE_HISTORY_H */
 #endif /* HAVE_READLINE_H */
 
+#include "invocation.h"
 #include "collective.h"
 #include "debug.h"
 #include "dsh.h"

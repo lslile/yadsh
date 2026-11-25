@@ -10,6 +10,7 @@ dsh_SOURCES =	\
 		collective.c \
 		debug.c \
 		dsh.c \
+		parse_pssp.c \
 		print.c \
 		proc.c \
 		queue.c	\
@@ -23,6 +24,8 @@ noinst_HEADERS = \
 		debug.h \
 		dsh.h \
 		includes.h\
+		invocation.h \
+		parse_pssp.h \
 		print.h \
 		proc.h \
 		queue.h \

@@ -29,6 +29,8 @@
 #ifndef _queue_h
 #define _queue_h
 
+struct invocation;
+
 typedef struct process
 {
 	struct member	*member;
@@ -56,7 +58,7 @@ int queue_slots(void);
 int queue_load(void);
 int queue_insert(struct member *, char *, int, char **);
 int queue_delete(struct process *);
-int queue_run(int, int);
+int queue_run(const struct invocation *, int, int);
 int queue_set_watchdogs(time_t);
 
 #endif /* _queue_h */

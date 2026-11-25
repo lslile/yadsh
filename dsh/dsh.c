@@ -27,72 +27,14 @@
  */
 
 #include "includes.h"
+#include "parse_pssp.h"
 
-#if !defined(RSH_DFLT)
-#define RSH_DFLT "/usr/bin/rsh"
-#endif /* !defined RSH_DFLT */
-
-#if !defined(SSH_DFLT)
-#define SSH_DFLT "/usr/bin/ssh"
-#endif /* !defined SSH_DFLT */
-
-#if !defined(DSHPATH_DFLT)
-#define DSHPATH_DFLT "/usr/ucb:/bin:/usr/bin:."
-#endif /* !defined DSHPATH_DFLT */
-
-#define MAX_FANOUT(x)	((x - 3) / 3)
-#define TIMEOUT		180
-
-unsigned int	 qflag = 0,
-		 iflag = 0,
-		 vflag = 0,
-		 cflag = 0,
-		 tflag = 1, /* XXX Default shell from configure */
-		 dflag = 0,
-		 Dflag = 0,
-		 fflag = 64;
-
-char		*lflag = (char *)NULL,
-		*wflag = (char *)NULL,
-		*oflag = (char *)NULL,
-		*Yflag = (char *)NULL;
-
+/*
+ * Runtime signal state, shared between sig_handler and execute_command.
+ * These are not command-line options, so they stay here rather than in the
+ * parsed invocation.
+ */
 volatile sig_atomic_t signaled = 0, sigcount = 0;
-
-unsigned int	 collate = 0;
-
-char		*__ypdomain = NULL;
-
-char		**remote_argv = (char **)NULL,
-		 *remote_host = (char *)NULL,
-		**remote_cmdv = (char **)NULL;
-int		  remote_argc = 0;
-
-void
-push_remote_argv(char *argument)
-{
-	char **tmp;
-
-	/* +2 because we keep the remote_argv null terminated  */
-	if ((tmp = (char **)malloc(sizeof(char *) * (remote_argc + 2))) == NULL)
-	{
-		perror("Unable to allocate remote arguments - malloc");
-		exit(1);
-	}
-	memset(tmp, '\0', sizeof(char *) * (remote_argc + 2));
-
-	if (remote_argv)
-	{
-		memcpy(tmp, remote_argv, remote_argc * sizeof(char *));
-		free(remote_argv);
-	}
-	remote_argv = tmp;
-
-	if (argument)
-		remote_argv[remote_argc] = strdup(argument);
-
-	remote_argc++;
-}
 
 void
 sig_handler(int signum)
@@ -306,7 +248,8 @@ run_local(const char *cmd)
 #endif /* HAVE_READLINE */
 
 int
-execute_command(int quiet, char *hn_method, int timeout, int argc, char **argv)
+execute_command(const struct invocation *inv, int quiet, int timeout,
+    int argc, char **argv)
 {
 	int		 rc = 0;
 	struct member	*ptr;
@@ -317,17 +260,17 @@ execute_command(int quiet, char *hn_method, int timeout, int argc, char **argv)
 	signaled = 0;
 	sigcount = 0;
 
-	if (iflag)
+	if (inv->echo)
 	{
-		char **cmdp = remote_cmdv;
-		collective_display();
+		char **cmdp = inv->remote_cmdv;
+		collective_display(inv);
 		printf("command: ");
 		while(*cmdp)
 			printf("%s ", *cmdp++);
 		printf("\n");
 	}
 
-	queue_max_slots(fflag);
+	queue_max_slots(inv->fanout);
 	ptr = collective_get_next(NULL);
 	while (((ptr && !signaled) || queue_load()))
 	{
@@ -356,10 +299,10 @@ execute_command(int quiet, char *hn_method, int timeout, int argc, char **argv)
 		{
 			struct member	*next;
 			next = collective_get_next(ptr);
-			if (cflag || ptr->responding)
+			if (inv->all || ptr->responding)
 			{
 				char *name = ptr->name;
-				if (!strcmp(hn_method, "reliable"))
+				if (!strcmp(inv->hn_method, "reliable"))
 					name = ptr->reliable;
 				queue_insert(ptr, name, argc, argv);
 			} else {
@@ -369,7 +312,7 @@ execute_command(int quiet, char *hn_method, int timeout, int argc, char **argv)
 			}
 			ptr = next;
 		}
-		rc += queue_run(quiet, signaled);
+		rc += queue_run(inv, quiet, signaled);
 
 		if (!ptr && queue_load() && !watchdogs_set)
 		{
@@ -390,237 +333,41 @@ execute_command(int quiet, char *hn_method, int timeout, int argc, char **argv)
 int
 main(int argc, char **argv)
 {
-	int		 ch,
-			 i,
-			 max_fanout = 0,
-			 dshtimeout = TIMEOUT;
-	char		*wcoll = (char *)NULL,
-			*fanout,
-			*dsh_remote_cmd = RSH_DFLT,
-			*rcmd_pgm = "rsh",
-			*hn_method = (char *)NULL,
-			*dshpath = (char *)NULL,
-			*prompt,
-			*envp;
+	struct invocation	 inv;
+	char			*wcoll = (char *)NULL,
+				*prompt;
+	int			 rc = 0;
 
-	char		*ping[] = { "ping", "-w", "4", NULL, NULL };
-
-#if defined(RLIMIT_NOFILE) || defined(RLIMIT_NPROC)
-	struct rlimit	 rl;
-#endif /* defined(RLIMIT_NOFILE) || defined(RLIMIT_NPROC) */
-
-	int		 rc = 0;
+	memset(&inv, 0, sizeof(inv));
 
 	if (geteuid() == 0)
 		prompt = "dsh# ";
 	else
 		prompt = "dsh> ";
 
-	if (getenv("DSH_DEBUG") != NULL)
-		set_debug(1);
-	debug_msg("DSH_DEBUG\n");
+	/* Turn argv and the environment into the canonical invocation. */
+	parse_pssp(argc, argv, &inv);
 
-	rcmd_pgm = (envp = getenv("RCMD_PGM")) ? envp : "rsh";
-	if (!strcmp(rcmd_pgm, "rsh"))
-		dsh_remote_cmd = (envp = getenv("DSH_REMOTE_CMD")) ? envp : RSH_DFLT;
-	else if (!strcmp(rcmd_pgm, "secrshell"))
-		dsh_remote_cmd = (envp = getenv("DSH_REMOTE_CMD")) ? envp : SSH_DFLT;
-	else
-	{
-		print_error("unknown RCMD_PGM %s\n", rcmd_pgm);
-		exit(1);
-	}
-	debug_msg("DSH_REMOTE_CMD = %s\n", dsh_remote_cmd);
-	debug_msg("RCMD_PGM = %s\n", rcmd_pgm);
-
-	push_remote_argv(dsh_remote_cmd);
-
-	hn_method = (envp = getenv("HN_METHOD")) ? envp : "initial_hostname";
-	if (strcmp(hn_method, "initial_hostname") &&
-	    strcmp(hn_method, "reliable"))
-	{
-		print_error("unknown HN_METHOD %s\n", hn_method);
-		exit(1);
-	}
-	debug_msg("HN_METHOD = %s\n", hn_method);
-
-	dshpath = (envp = getenv("DSHPATH")) ? envp : DSHPATH_DFLT;
-	debug_msg("DSHPATH = %s\n", dshpath);
-
-	if (getenv("DSH_TIMEOUT"))
-		dshtimeout = atoi(getenv("DSH_TIMEOUT"));
-	debug_msg("DSH_TIMEOUT = %d\n", dshtimeout);
-
-	if (getenv("DSH_COLLATE") != NULL)
-	{
-		collate = 1;
-		debug_msg("DSH_COLLATE\n");
-	}
-
-#if defined(RLIMIT_NOFILE)
-	if (getrlimit(RLIMIT_NOFILE, &rl) == -1)
-	{
-		perror("getrlimit");
-	} else {
-		debug_msg("RLIMIT_NOFILE = %d (%d)\n",
-		    rl.rlim_cur, rl.rlim_max);
-		debug_msg("maximum fanout: %d\n", MAX_FANOUT(rl.rlim_cur));
-		if (rl.rlim_cur != RLIM_INFINITY && rl.rlim_cur > 3)
-			max_fanout = MAX_FANOUT(rl.rlim_cur);
-	}
-#endif /* defined(RLIMIT_NOFILE) */
-
-#if defined(RLIMIT_NPROC)
-	if (getrlimit(RLIMIT_NPROC, &rl) == -1)
-	{
-		perror("getrlimit");
-	} else {
-		debug_msg("RLIMIT_NPROC = %d (%d)\n",
-		    rl.rlim_cur, rl.rlim_max);
-		/* XXX Reduce fflag if necessary */
-	}
-#endif /* defined(RLIMIT_NPROC) */
-
-	if ((fanout = getenv("FANOUT")) != NULL && atoi(fanout) > 0)
-		fflag = atoi(fanout);
-
-	while ((ch = getopt(argc, argv, "qhivct:dDl:w:f:o:")) != -1)
-	{
-		switch(ch)
-		{
-			case 'q':
-				qflag = 1;
-				break;
-			case 'h':
-				exit(usage(argv[0]));
-				break;
-			case 'i':
-				iflag = 1;
-				break;
-			case 'v':
-				vflag = 1;
-				break;
-			case 'c':
-				cflag = 1;
-				break;
-			case 't':
-				if (!strcmp(optarg, "sh") || !strcmp(optarg, "ksh"))
-					tflag = 0;
-				else if (!strcmp(optarg, "csh") || !strcmp(optarg, "tcsh"))
-					tflag = 1;
-				else
-				{
-					print_error("%s unknown shell syntax.\n", optarg);
-					exit(1);
-				}
-				break;
-			case 'd':
-				dflag = 1;
-				if (Dflag)
-				{
-					print_error("-D and -d cannot be used at the same time.\n");
-					exit(1);
-				}
-				break;
-			case 'D':
-				Dflag = 1;
-				if (dflag)
-				{
-					print_error("-D and -d cannot be used at the same time.\n");
-					exit(1);
-				}
-				break;
-			case 'l':
-				lflag = strdup(optarg);
-				break;
-			case 'w':
-				wflag = strdup(optarg);
-				break;
-			case 'f':
-				fflag = atoi(optarg);
-				break;
-			case 'o':
-				oflag = strdup(optarg);
-				push_remote_argv(oflag);
-				break;
-			case 'Y':
-				Yflag = strdup(optarg);
-				__ypdomain = Yflag;
-				break;
-			default:
-				exit(!usage(argv[0]));
-				break;
-		}
-	}
-
-	/* Cap fanout to what RLIMIT_NOFILE can support (3 pipe fds per child). */
-	if (max_fanout > 0 && fflag > max_fanout)
-	{
-		print_error("fanout %d exceeds RLIMIT_NOFILE capacity; reducing to %d\n",
-		    fflag, max_fanout);
-		fflag = max_fanout;
-	}
-
-	argc -= optind;
-	argv += optind;
-
-	if (lflag)
-	{
-		push_remote_argv("-l");
-		push_remote_argv(lflag);
-	}
-	if (dflag)
-		push_remote_argv("-f");
-	if (Dflag)
-		push_remote_argv("-F");
-
- 	/* XXX First NULL argument becomes hostname */
-	remote_host = remote_argv[remote_argc];
-	push_remote_argv(NULL);
-
-	if (strlen(dshpath))
-	{
-		char *tmp;
-		if (tflag)
-		{
-			tmp = (char *)malloc(sizeof(char) *
-				(strlen(dshpath) + strlen("setenv PATH ;") + 1) );
-			sprintf(tmp, "setenv PATH %s;", dshpath);
-		} else {
-			tmp = (char *)malloc(sizeof(char) *
-				(strlen(dshpath) + strlen("PATH=; export PATH;") + 1) );
-			sprintf(tmp, "PATH=%s; export PATH;", dshpath);
-		}
-		push_remote_argv(tmp);
-		free(tmp);
-	}
-
-	if (argc)
-		for (i = 0; i < argc; i++)
-			push_remote_argv(argv[i]);
-	remote_cmdv = &remote_argv[remote_argc - argc];
-
-	debug_msg("remote_argv = ");
-	for (i = 0; i < remote_argc; i++)
-		debug_msg("%s ", (remote_argv[i] ? remote_argv[i] : "(NULL)"));
-
-	debug_msg("\nremote_argc = %d\n", remote_argc);
-	
-	if (!wflag && ((wcoll = getenv("WCOLL")) == NULL))
+	/*
+	 * Resolve the working collective: the -w argument, else stdin when it
+	 * is "-", else the $WCOLL file.  This wires the parsed source to the
+	 * engine's collective loader; neither side looks at argv again.
+	 */
+	if (!inv.collective_arg && ((wcoll = getenv("WCOLL")) == NULL))
 	{
 		print_error("working collective not set.\n");
 		exit(1);
 	}
 
-	if (wflag)
+	if (inv.collective_arg)
 	{
-		if (*wflag != '-')
+		if (*inv.collective_arg != '-')
 		{
 			debug_msg("loading collective from -w\n");
-			collective_parse(wflag, ',');
+			collective_parse(&inv, inv.collective_arg, ',');
 		} else {
 			debug_msg("loading collective from stdin\n");
-			collective_add_stdin(stdin);
+			collective_add_stdin(&inv, stdin);
 		}
 	} else {
 		FILE	*file = stdin;
@@ -630,22 +377,23 @@ main(int argc, char **argv)
 			perror("fopen");
 			return 1;
 		}
-		collective_add_file(file);
+		collective_add_file(&inv, file);
 	}
 
-	if (qflag)
-		return collective_display();
+	if (inv.quiet)
+		return collective_display(&inv);
 
 	set_sig(SIGINT, sig_handler);
 	set_sig(SIGQUIT, sig_handler);
 	signal(SIGABRT, &sig_handler);
 
-	if (vflag)
+	if (inv.verify)
 	{
-		execute_command(1, hn_method, 10, 4, ping);
+		char	*ping[] = { "ping", "-w", "4", NULL, NULL };
+		execute_command(&inv, 1, 10, 4, ping);
 	}
 
-	if (argc == 0)
+	if (inv.cmd_argc == 0)
 	{
 #if defined(HAVE_READLINE)
 		char *line;
@@ -758,9 +506,9 @@ main(int argc, char **argv)
 					run_local(s + 1);
 					continue;
 				} else {
-					remote_argv[remote_argc - 1] = strdup(s);
-					rc = execute_command(0, hn_method, dshtimeout,
-							remote_argc, remote_argv);
+					inv.remote_argv[inv.remote_argc - 1] = strdup(s);
+					rc = execute_command(&inv, 0, inv.timeout,
+							inv.remote_argc, inv.remote_argv);
 				}
 			}
 		}
@@ -931,44 +679,16 @@ main(int argc, char **argv)
 		printf("readline not availble\n");
 #endif /* HAVE_READLINE */
 	} else {
-		rc = execute_command(0, hn_method, dshtimeout, remote_argc, remote_argv);
+		rc = execute_command(&inv, 0, inv.timeout,
+		    inv.remote_argc, inv.remote_argv);
 	}
 
 	set_sig(SIGINT, SIG_DFL);
 	set_sig(SIGQUIT, SIG_DFL);
 	set_sig(SIGABRT, SIG_DFL);
 
-	for (i = 0; i < remote_argc; i++)
-		if (remote_argv[i])
-		{
-			free(remote_argv[i]);
-			remote_argv[i] = (char *)NULL;
-		}
-	free(remote_argv);
-	remote_argv = (char **)NULL;
-
+	invocation_free(&inv);
 	free_collective();
-
-	if (lflag)
-	{
-		free(lflag);
-		lflag = (char *)NULL;
-	}
-	if (wflag)
-	{
-		free(wflag);
-		wflag = (char *)NULL;
-	}
-	if (oflag)
-	{
-		free(oflag);
-		oflag = (char *)NULL;
-	}
-	if (Yflag)
-	{
-		free(Yflag);
-		Yflag = (char *)NULL;
-	}
 
 	return rc;
 }

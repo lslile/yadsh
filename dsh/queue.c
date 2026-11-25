@@ -144,7 +144,7 @@ queue_delete(struct process *ptr)
 }
 
 int
-queue_run(int quiet, int signo)
+queue_run(const struct invocation *inv, int quiet, int signo)
 {
 	struct process	*ptr = queue;
 	fd_set		 read_fds,
@@ -266,7 +266,7 @@ queue_run(int quiet, int signo)
 				close(ptr->pstdout);
 				ptr->pstdout = -1;
 			} 
-			if (!quiet && !collate)
+			if (!quiet && !inv->collate)
 				proc_output(stdout, ptr, &ptr->outbuffer, &ptr->outcount, 0);
 			if (ptr->watchdog)
 			{
@@ -275,7 +275,7 @@ queue_run(int quiet, int signo)
 
 			}
 		} else {
-			if (!quiet && !collate && ptr->pstdout >= 0 && ptr->outcount)
+			if (!quiet && !inv->collate && ptr->pstdout >= 0 && ptr->outcount)
 				proc_output(stdout, ptr, &ptr->outbuffer, &ptr->outcount, 1);
 		}
 
@@ -289,7 +289,7 @@ queue_run(int quiet, int signo)
 				close(ptr->pstderr);
 				ptr->pstderr = -1;
 			}
-			if (!quiet && !collate)
+			if (!quiet && !inv->collate)
 				proc_output(stderr, ptr, &ptr->errbuffer, &ptr->errcount, 0);
 			if (ptr->watchdog)
 			{
@@ -298,7 +298,7 @@ queue_run(int quiet, int signo)
 			}
 
 		} else {
-			if (!quiet && !collate && ptr->pstderr >=0 && ptr->errcount)
+			if (!quiet && !inv->collate && ptr->pstderr >=0 && ptr->errcount)
 				proc_output(stderr, ptr, &ptr->errbuffer, &ptr->errcount, 1);
 		}
 		ptr = ptr->next;

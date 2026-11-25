@@ -29,29 +29,11 @@
 #ifndef _dsh_h
 #define _dsh_h
 
-extern unsigned int	 qflag,
-			 iflag,
-			 vflag,
-			 cflag,
-			 tflag,
-			 dflag,
-			 Dflag,
-			 fflag;
-
-extern char		*lflag,
-			*wflag,
-			*oflag,
-			*Yflag;
-	
-extern unsigned int	 collate;
-
-extern char 		**remote_argv;
-extern int 		  remote_argc;
+struct invocation;
 
 char *clean_string(char *);
 void sig_handler(int);
-int execute_command(int, char *, int, int, char **);
-void push_remote_argv(char *);
+int execute_command(const struct invocation *, int, int, int, char **);
 
 #define TMPBUFSIZE	4096
 

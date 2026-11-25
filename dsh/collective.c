@@ -100,7 +100,7 @@ collective_drop_member(struct member *ptr)
 }
 
 int
-collective_add_member(char *name)
+collective_add_member(const struct invocation *inv, char *name)
 {
 	char 		*reliable;
 	struct member	*member;
@@ -118,7 +118,7 @@ collective_add_member(char *name)
 			char **ptr = netgroup;
 			while (*ptr)
 			{
-				collective_add_member(*ptr);
+				collective_add_member(inv, *ptr);
 				ptr++;
 			}
 		}
@@ -132,7 +132,7 @@ collective_add_member(char *name)
 			member->reliable = strdup(reliable);
 			member->responding = 1;
 		} else {
-			if (!qflag)
+			if (!inv->quiet)
 				print_host_error(name, "unknown host\n");
 			return 1;
 		}
@@ -168,7 +168,7 @@ collective_add_member(char *name)
 }
 
 int
-collective_parse(char *buffer, char separator)
+collective_parse(const struct invocation *inv, char *buffer, char separator)
 {
 	char	*tmp,
 		*ptr,
@@ -186,7 +186,7 @@ collective_parse(char *buffer, char separator)
 		if ((sep = strchr(ptr, separator)))
 			*sep++ = '\0';
 		if ((s = clean_string(ptr)) != NULL && *s != '#' && strlen(s))
-			collective_add_member(s);
+			collective_add_member(inv, s);
 		ptr = sep;
 	}
 	free(tmp);
@@ -195,14 +195,14 @@ collective_parse(char *buffer, char separator)
 }
 
 int
-collective_display(void)
+collective_display(const struct invocation *inv)
 {
 	struct member	*ptr = collective;
 	int		 count = 0;
 
 	while (ptr)
 	{
-		if (cflag || ptr->responding)
+		if (inv->all || ptr->responding)
 			count++;
 		ptr = ptr->next;
 	}
@@ -211,19 +211,19 @@ collective_display(void)
 	printf("working collective (%d):", count);
 	while (ptr)
 	{
-		if (cflag || ptr->responding)
+		if (inv->all || ptr->responding)
 			printf("%s%s", (ptr == collective ? " " : ", "), ptr->name);
 		ptr = ptr->next;
 	}
-	if (qflag)
-		printf("\nfanout: %d", fflag);
+	if (inv->quiet)
+		printf("\nfanout: %d", inv->fanout);
 	printf("\n");
 
 	return 0;
 }
 
 int
-collective_add_file(FILE *file)
+collective_add_file(const struct invocation *inv, FILE *file)
 {
 	int		 fd = fileno(file);
 	char		*baddr;
@@ -242,7 +242,7 @@ collective_add_file(FILE *file)
 		exit(1);
 	}
 
-	collective_parse(baddr, '\n');
+	collective_parse(inv, baddr, '\n');
 
 	if (munmap(baddr, sb.st_size) == -1)
 	{
@@ -254,7 +254,7 @@ collective_add_file(FILE *file)
 }
 
 int
-collective_add_stdin(FILE *file)
+collective_add_stdin(const struct invocation *inv, FILE *file)
 {
 	char	 *wcoll = (char *)NULL;
 	int	 fd = fileno(file),
@@ -282,7 +282,7 @@ collective_add_stdin(FILE *file)
 		}
 	} while (tmp > 0);
 
-	collective_parse(wcoll, '\n');
+	collective_parse(inv, wcoll, '\n');
 
 	free(wcoll);
 	wcoll = (char *)NULL;
