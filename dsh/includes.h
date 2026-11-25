@@ -78,6 +78,7 @@
 #endif /* HAVE_READLINE_H */
 
 #include "invocation.h"
+#include "parse.h"
 #include "collective.h"
 #include "debug.h"
 #include "dsh.h"

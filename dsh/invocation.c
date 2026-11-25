@@ -26,21 +26,65 @@
  *
  */
 
-#ifndef _parse_pssp_h
-#define _parse_pssp_h
-
-struct invocation;
-
 /*
- * Parse the IBM PSSP dsh command line and environment into *inv, which the
- * caller provides zero-initialised.  On a usage or configuration error this
- * prints a diagnostic and exits the process (matching dsh's long-standing
- * behaviour), so it returns only on success.  Release the result with
- * invocation_free().
+ * Operations on struct invocation shared by every dialect parser.  Keeping
+ * the remote-argv builder and the destructor here (rather than copied into
+ * parse_pssp.c and parse_dsm.c) means the two dialects cannot drift in how
+ * they grow or free the canonical invocation.  This file is compiled into
+ * every dialect binary, like queue.c and print.c.
  */
-void parse_pssp(int argc, char **argv, struct invocation *inv);
 
-/* Free everything parse_pssp() allocated into *inv (but not *inv itself). */
-void invocation_free(struct invocation *inv);
+#include "includes.h"
 
-#endif /* _parse_pssp_h */
+void
+push_remote_argv(struct invocation *inv, char *argument)
+{
+	char **tmp;
+
+	/* +2 because we keep remote_argv NULL terminated. */
+	if ((tmp = (char **)malloc(sizeof(char *) * (inv->remote_argc + 2))) == NULL)
+	{
+		perror("Unable to allocate remote arguments - malloc");
+		exit(1);
+	}
+	memset(tmp, '\0', sizeof(char *) * (inv->remote_argc + 2));
+
+	if (inv->remote_argv)
+	{
+		memcpy(tmp, inv->remote_argv, inv->remote_argc * sizeof(char *));
+		free(inv->remote_argv);
+	}
+	inv->remote_argv = tmp;
+
+	if (argument)
+		inv->remote_argv[inv->remote_argc] = strdup(argument);
+
+	inv->remote_argc++;
+}
+
+void
+invocation_free(struct invocation *inv)
+{
+	int	i;
+
+	if (inv->remote_argv)
+	{
+		for (i = 0; i < inv->remote_argc; i++)
+		{
+			if (inv->remote_argv[i])
+			{
+				free(inv->remote_argv[i]);
+				inv->remote_argv[i] = (char *)NULL;
+			}
+		}
+		free(inv->remote_argv);
+		inv->remote_argv = (char **)NULL;
+	}
+	inv->remote_cmdv = (char **)NULL;
+
+	if (inv->collective_arg)
+	{
+		free(inv->collective_arg);
+		inv->collective_arg = (char *)NULL;
+	}
+}

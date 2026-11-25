@@ -5,20 +5,24 @@ AM_CFLAGS =	$(SANITIZE_FLAGS)
 AM_LDFLAGS =	$(SANITIZE_FLAGS)
 
 # T14: one dialect binary per build (dsh.$(DIALECT)); a convenience `dsh'
-# symlink points at it (install-exec-hook below).  This build is pssp; the
-# dsm grammar arrives in T14b.
-bin_PROGRAMS =	dsh.pssp
-
-dsh_pssp_SOURCES = \
+# symlink points at it (install-exec-hook below).  The engine, queue, output
+# and the shared invocation module are dialect-blind and compile into every
+# binary; each dialect adds its own parser (parse_DIALECT.c, defining the
+# neutral parse_invocation()) and its own usage text (usage_DIALECT.c).  This
+# build is pssp; the dsm grammar arrives with --enable-dialect=dsm (T14b).
+COMMON_SOURCES = \
 		collective.c \
 		debug.c \
 		dsh.c \
-		parse_pssp.c \
+		invocation.c \
 		print.c \
 		proc.c \
 		queue.c	\
-		resolv.c \
-		usage.c
+		resolv.c
+
+bin_PROGRAMS =	dsh.pssp
+
+dsh_pssp_SOURCES = $(COMMON_SOURCES) parse_pssp.c usage_pssp.c
 
 dsh_pssp_LDADD = $(RL_LIBS)
 
@@ -28,7 +32,7 @@ noinst_HEADERS = \
 		dsh.h \
 		includes.h\
 		invocation.h \
-		parse_pssp.h \
+		parse.h \
 		print.h \
 		proc.h \
 		queue.h \

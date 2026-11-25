@@ -65,4 +65,15 @@ struct invocation
 	int	  cmd_argc;	/* trailing command-word count; 0 => interactive */
 };
 
+/*
+ * Append one argument to inv->remote_argv, keeping it NULL-terminated.  A NULL
+ * argument advances the count without storing anything, reserving the slot
+ * (used for the per-member hostname, which queue_insert fills in).  Shared by
+ * every dialect parser; implemented in invocation.c.
+ */
+void push_remote_argv(struct invocation *inv, char *argument);
+
+/* Free everything a parser allocated into *inv (but not *inv itself). */
+void invocation_free(struct invocation *inv);
+
 #endif /* _invocation_h */

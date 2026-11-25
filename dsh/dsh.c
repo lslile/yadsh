@@ -27,7 +27,6 @@
  */
 
 #include "includes.h"
-#include "parse_pssp.h"
 
 /*
  * Runtime signal state, shared between sig_handler and execute_command.
@@ -346,7 +345,7 @@ main(int argc, char **argv)
 		prompt = "dsh> ";
 
 	/* Turn argv and the environment into the canonical invocation. */
-	parse_pssp(argc, argv, &inv);
+	parse_invocation(argc, argv, &inv);
 
 	/*
 	 * Resolve the working collective: the -w argument, else stdin when it

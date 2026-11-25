@@ -35,7 +35,7 @@
  */
 
 #include "includes.h"
-#include "parse_pssp.h"
+#include "parse.h"
 
 #if !defined(RSH_DFLT)
 #define RSH_DFLT "/usr/bin/rsh"
@@ -55,39 +55,11 @@
 /* Set from -Y, consumed by the (NIS) resolver path; preserved verbatim. */
 static char	*__ypdomain = NULL;
 
-/*
- * Append one argument to inv->remote_argv, keeping it NULL-terminated.  A
- * NULL argument advances the count without storing anything, reserving the
- * slot (used for the per-member hostname, which queue_insert fills in).
- */
-static void
-push_remote_argv(struct invocation *inv, char *argument)
-{
-	char **tmp;
-
-	/* +2 because we keep remote_argv NULL terminated. */
-	if ((tmp = (char **)malloc(sizeof(char *) * (inv->remote_argc + 2))) == NULL)
-	{
-		perror("Unable to allocate remote arguments - malloc");
-		exit(1);
-	}
-	memset(tmp, '\0', sizeof(char *) * (inv->remote_argc + 2));
-
-	if (inv->remote_argv)
-	{
-		memcpy(tmp, inv->remote_argv, inv->remote_argc * sizeof(char *));
-		free(inv->remote_argv);
-	}
-	inv->remote_argv = tmp;
-
-	if (argument)
-		inv->remote_argv[inv->remote_argc] = strdup(argument);
-
-	inv->remote_argc++;
-}
+/* push_remote_argv() and invocation_free() live in invocation.c, shared by
+ * every dialect parser (declared in invocation.h). */
 
 void
-parse_pssp(int argc, char **argv, struct invocation *inv)
+parse_invocation(int argc, char **argv, struct invocation *inv)
 {
 	int		 ch,
 			 i,
@@ -317,31 +289,4 @@ parse_pssp(int argc, char **argv, struct invocation *inv)
 		free(lflag);
 	if (oflag)
 		free(oflag);
-}
-
-void
-invocation_free(struct invocation *inv)
-{
-	int	i;
-
-	if (inv->remote_argv)
-	{
-		for (i = 0; i < inv->remote_argc; i++)
-		{
-			if (inv->remote_argv[i])
-			{
-				free(inv->remote_argv[i]);
-				inv->remote_argv[i] = (char *)NULL;
-			}
-		}
-		free(inv->remote_argv);
-		inv->remote_argv = (char **)NULL;
-	}
-	inv->remote_cmdv = (char **)NULL;
-
-	if (inv->collective_arg)
-	{
-		free(inv->collective_arg);
-		inv->collective_arg = (char *)NULL;
-	}
 }
