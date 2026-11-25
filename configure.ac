@@ -35,16 +35,20 @@ dnl ******************************
 dnl Build-time CLI grammar selection.  Each build produces exactly one
 dnl dialect binary (dsh.$DIALECT); `make install' adds a convenience `dsh'
 dnl symlink pointing at it.  Default is pssp so existing scripts and ~/bin
-dnl wrappers never break.  The dsm grammar arrives in T14b.
+dnl wrappers never break.  pssp = IBM PSSP dsh syntax; dsm = IBM DSM dsh
+dnl syntax (AIX Distributed Systems Management).  The two binaries are
+dnl coinstallable (dsh.pssp, dsh.dsm) and share the engine; only the parser
+dnl and usage text differ per dialect.
 AC_ARG_ENABLE([dialect],
   [AS_HELP_STRING([--enable-dialect=pssp|dsm],
     [CLI grammar to build (default: pssp)])],
   [dialect=$enableval], [dialect=pssp])
 AS_CASE([$dialect],
   [pssp], [],
-  [dsm], [AC_MSG_ERROR([the dsm dialect is not implemented yet (T14b); use --enable-dialect=pssp])],
+  [dsm], [],
   [AC_MSG_ERROR([invalid --enable-dialect=$dialect (expected pssp or dsm)])])
 AC_SUBST([DIALECT], [$dialect])
+AM_CONDITIONAL([DIALECT_DSM], [test "x$dialect" = xdsm])
 
 dnl Checks for libraries.
 AC_SEARCH_LIBS(inet_aton, resolv)
@@ -271,7 +275,7 @@ fi
 dnl Checks for header files.
 AC_HEADER_STDC
 AC_HEADER_SYS_WAIT
-AC_CHECK_HEADERS(fcntl.h sys/time.h string.h unistd.h netdb.h readline/readline.h readline/history.h)
+AC_CHECK_HEADERS(fcntl.h sys/time.h string.h unistd.h netdb.h getopt.h readline/readline.h readline/history.h)
 
 dnl Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST
@@ -282,7 +286,7 @@ dnl Checks for library functions.
 AC_FUNC_MMAP
 AC_TYPE_SIGNAL
 AC_FUNC_VPRINTF
-AC_CHECK_FUNCS(unsetenv putenv select strdup strerror readline add_history read_history write_history append_history)
+AC_CHECK_FUNCS(unsetenv putenv select strdup strerror getopt_long readline add_history read_history write_history append_history)
 
 AC_EXEEXT
 AC_CONFIG_FILES([Makefile dsh/Makefile dshbak/Makefile contrib/Makefile tests/Makefile dsh.spec])

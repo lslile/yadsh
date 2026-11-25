@@ -1,0 +1,101 @@
+#!/bin/sh
+# dsh.dsm (DSM dialect): usage, fan-out across node targets using a fake remote
+# command (no cluster), noderange expansion, node groups, and -X env filtering.
+set -e
+
+DSH=${DSH:-../dsh/dsh.dsm}
+DSHBAK=${DSHBAK:-../dshbak/dshbak}
+FAKE=${FAKE_RCMD:-./fake-rcmd}
+
+# DSM transport is -r/DSH_NODE_RSH (not RCMD_PGM); DSH_PATH='' keeps the parser
+# from prepending a PATH-setup word so the fake rcmd execs the command directly.
+export DSH_PATH=''
+run_dsh() {
+	"$DSH" -r "$FAKE" "$@"
+}
+
+# Three distinct loopback addresses as the "nodes" (they resolve without DNS).
+HOSTS=127.0.0.1,127.0.0.2,127.0.0.3
+
+# Usage and version exit cleanly.
+"$DSH" -h >/dev/null
+"$DSH" -V >/dev/null
+
+# Fan-out: each node runs `echo ok` locally; dsh tags one line per node.
+out=$(run_dsh -n "$HOSTS" echo ok)
+n=$(printf '%s\n' "$out" | grep -c ': ok$')
+if [ "$n" -ne 3 ]; then
+	echo "fan-out: expected 3 node outputs, got $n"; printf '%s\n' "$out"; exit 1
+fi
+
+# Noderange: 127.0.0.[1-3] expands to the same three nodes.
+out=$(run_dsh -n '127.0.0.[1-3]' echo ok)
+n=$(printf '%s\n' "$out" | grep -c ': ok$')
+if [ "$n" -ne 3 ]; then
+	echo "noderange: expected 3 node outputs, got $n"; printf '%s\n' "$out"; exit 1
+fi
+
+# A comma inside the brackets is part of the range, not a list separator.
+out=$(run_dsh -n '127.0.0.[1,3]' echo ok)
+n=$(printf '%s\n' "$out" | grep -c ': ok$')
+[ "$n" -eq 2 ] || { echo "noderange comma: expected 2, got $n"; printf '%s\n' "$out"; exit 1; }
+
+# End to end through dshbak -c: identical output collates into a single block.
+coll=$(run_dsh -n "$HOSTS" echo ok | "$DSHBAK" -c)
+b=$(printf '%s\n' "$coll" | grep -c '^HOSTS ')
+if [ "$b" -ne 1 ]; then
+	echo "collate: expected 1 block, got $b"; printf '%s\n' "$coll"; exit 1
+fi
+
+# Node groups: -N resolves group files found on DSH_NODEGROUP_PATH; -a unions
+# every group.  Build a throwaway group directory.
+GD=$(mktemp -d)
+trap 'rm -rf "$GD"' EXIT
+printf '127.0.0.1\n127.0.0.2\n# comment ignored\n\n' > "$GD/web"
+printf '127.0.0.3\n' > "$GD/db"
+# Inline comment after a real node: the rest of the line is ignored, so this
+# group has exactly one member (not three).
+printf '127.0.0.1 # primary, do not touch\n' > "$GD/mix"
+DSH_NODEGROUP_PATH="$GD"; export DSH_NODEGROUP_PATH
+
+n=$(run_dsh -N web echo ok | grep -c ': ok$')
+[ "$n" -eq 2 ] || { echo "-N web: expected 2, got $n"; exit 1; }
+n=$(run_dsh -N mix echo ok | grep -c ': ok$')
+[ "$n" -eq 1 ] || { echo "-N mix (inline comment): expected 1, got $n"; exit 1; }
+n=$(run_dsh -N web,db echo ok | grep -c ': ok$')
+[ "$n" -eq 3 ] || { echo "-N web,db: expected 3, got $n"; exit 1; }
+n=$(run_dsh -a echo ok | grep -c ': ok$')
+[ "$n" -eq 3 ] || { echo "-a: expected 3, got $n"; exit 1; }
+
+# A named group that does not exist is an error, not an empty run.
+if run_dsh -N no_such_group echo ok >/dev/null 2>&1; then
+	echo "-N no_such_group: expected failure"; exit 1
+fi
+unset DSH_NODEGROUP_PATH
+
+# No targets at all is an error.
+if "$DSH" -r "$FAKE" echo ok >/dev/null 2>&1; then
+	echo "no targets: expected failure"; exit 1
+fi
+
+# -C selects a context module, which is not implemented yet (T15): it must
+# error rather than silently run.
+if run_dsh -C somectx -n 127.0.0.1 echo ok >/dev/null 2>&1; then
+	echo "-C: expected 'not implemented' failure"; exit 1
+fi
+
+# -X ignores DSH_* variables: DSH_FANOUT=9 is dropped, so -q reports the
+# default 64; naming it in the keep list (-XDSH_FANOUT) preserves it.
+cfg=$(DSH_FANOUT=9 "$DSH" -X -q)
+echo "$cfg" | grep -q 'fanout.*  *64$' || {
+	echo "-X did not ignore DSH_FANOUT"; echo "$cfg"; exit 1; }
+cfg=$(DSH_FANOUT=9 "$DSH" -XDSH_FANOUT -q)
+echo "$cfg" | grep -q 'fanout.*  *9$' || {
+	echo "-X keep-list did not preserve DSH_FANOUT"; echo "$cfg"; exit 1; }
+
+# -v must be a recognized option (it sets verify).  -q exits before any verify
+# or execution, so this confirms the flag parses rather than falling through to
+# the usage error.
+"$DSH" -v -q >/dev/null || { echo "-v not accepted as an option"; exit 1; }
+
+echo "dsh-dsm: OK"

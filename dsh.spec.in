@@ -2,7 +2,9 @@
 %define	RELEASE	1%{?dist}
 %define rel	%{?CUSTOM_RELEASE} %{!?CUSTOM_RELEASE:%RELEASE}
 
-Summary: Distributed Shell
+%define dshpath /sbin:/usr/sbin:/bin:/usr/bin:/etc/usr/kerberos/sbin:/usr/kerberos/bin:/usr/local/bin:/usr/local/sys/bin
+
+Summary: Distributed Shell (PSSP dialect) and dshbak
 Name: dsh
 Version: %ver
 Release: %rel
@@ -14,10 +16,23 @@ Packager: Larry Lile <lile@users.sourceforge.net>
 Prefix: /usr
 
 %description
-Dsh is a parallel distributed shell.  It allows the user to
-execute the same commands in parallel across many hosts at 
-once using a variety of remote shells such as: rsh, kerberized
-rsh and ssh.
+Dsh is a parallel distributed shell.  It runs the same command in parallel
+across many hosts using a remote shell such as rsh, kerberized rsh or ssh.
+
+This package provides the IBM PSSP command grammar as dsh.pssp, the dshbak
+output formatter, and the convenience `dsh' symlink pointing at the PSSP
+dialect (the portable default).  The IBM DSM grammar is in the dsh-dsm
+subpackage; the two binaries are coinstallable.
+
+%package dsm
+Summary: Distributed Shell (DSM dialect)
+Group: System Environment/Shells
+Requires: dsh = %{version}-%{release}
+
+%description dsm
+The IBM DSM (AIX Distributed Systems Management) command grammar of dsh,
+installed as dsh.dsm.  It shares the engine with dsh.pssp and is coinstallable
+alongside it; `dsh' continues to point at the default dialect.
 
 %changelog
 
@@ -25,23 +40,43 @@ rsh and ssh.
 %setup
 
 %build
-
-%configure \
-	--prefix=%prefix \
-	--with-rsh=/usr/bin/rsh \
-	--with-dshpath=/sbin:/usr/sbin:/bin:/usr/bin:/etc/usr/kerberos/sbin:/usr/kerberos/bin:/usr/local/bin:/usr/local/sys/bin
-make
+# Build each dialect from this one source tree in its own VPATH subdirectory,
+# so a single spec produces both binaries.
+export CFLAGS="%{optflags}"
+for dialect in pssp dsm; do
+	mkdir -p _build/$dialect
+	( cd _build/$dialect && \
+	  ../../configure \
+		--prefix=%{_prefix} \
+		--bindir=%{_bindir} \
+		--mandir=%{_mandir} \
+		--enable-dialect=$dialect \
+		--with-rsh=/usr/bin/rsh \
+		--with-dshpath=%{dshpath} && \
+	  make %{?_smp_mflags} )
+done
 
 %install
 rm -rf $RPM_BUILD_ROOT
-
-make install DESTDIR=$RPM_BUILD_ROOT
+# Install dsm first, then pssp last, so the `dsh' / `dsh.1' convenience links
+# (created by each build's install hooks) end up pointing at the pssp default.
+make -C _build/dsm  install DESTDIR=$RPM_BUILD_ROOT
+make -C _build/pssp install DESTDIR=$RPM_BUILD_ROOT
 
 %clean
 [ -n "$RPM_BUILD_ROOT" -a "$RPM_BUILD_ROOT" != / ] && rm -rf $RPM_BUILD_ROOT
 
 %files
 %defattr(-, root, root)
+%{_bindir}/dsh
+%{_bindir}/dsh.pssp
+%{_bindir}/dshbak
+%{_bindir}/dipmi
+%{_mandir}/man1/dsh.1*
+%{_mandir}/man1/dsh.pssp.1*
+%{_mandir}/man1/dshbak.1*
 
-%{prefix}/bin/*
-%{prefix}/share/man/man1/*
+%files dsm
+%defattr(-, root, root)
+%{_bindir}/dsh.dsm
+%{_mandir}/man1/dsh.dsm.1*

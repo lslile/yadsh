@@ -1,0 +1,231 @@
+.\"  Copyright (c) 2004-2024, Larry Lile <lile@users.sourceforge.net>
+.\"  All rights reserved.
+.\"
+.\"  Redistribution and use in source and binary forms, with or without
+.\"  modification, are permitted provided that the following conditions
+.\"  are met:
+.\"  1. Redistributions of source code must retain the above copyright
+.\"     notice unmodified, this list of conditions, and the following
+.\"     disclaimer.
+.\"  2. Redistributions in binary form must reproduce the above copyright
+.\"     notice, this list of conditions and the following disclaimer in the
+.\"     documentation and/or other materials provided with the distribution.
+.\"
+.\"  THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
+.\"  ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+.\"  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+.\"  ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+.\"  FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+.\"  DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+.\"  OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+.\"  HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+.\"  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+.\"  OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+.\"  SUCH DAMAGE.
+.\"
+.\"
+.Dd November 25, 2026
+.Dt DSH.DSM 1
+.Os "dsh.dsm (@VERSION@)"
+.Sh NAME
+.Nm dsh.dsm
+.Nd distributed shell (IBM DSM dialect)
+.Sh SYNOPSIS
+.Nm
+.Op Fl h | Fl V | Fl q
+.Pp
+.Nm
+.Op Fl n Ar node_list
+.Op Fl N Ar nodegroups
+.Op Fl a
+.Op Fl f Ar fanout
+.Op Fl t Ar timeout
+.Op Fl s
+.Op Fl v
+.Op Fl l Ar user
+.Op Fl o Dq Ar node_options
+.Op Fl r Ar node_remote_shell
+.Op Fl S Ar csh|ksh
+.Op Fl X Op Ar env_list
+.Op command
+.Sh DESCRIPTION
+.Nm
+runs a command in parallel across a set of node targets, tagging each line of
+output with the name of the node it came from.  It is the
+.Em DSM
+dialect of
+.Xr dsh 1 ,
+following the command grammar of the IBM AIX Distributed Systems Management
+.Nm dsh
+utility rather than the PSSP grammar of
+.Xr dsh.pssp 1 .
+Both dialects share one engine and are coinstallable; the plain
+.Nm dsh
+name resolves to whichever dialect the build selected as the default.
+.Pp
+The target list is the union of the nodes named with
+.Fl n ,
+the members of the node groups named with
+.Fl N ,
+and, with
+.Fl a ,
+every node in every group file found on
+.Ev DSH_NODEGROUP_PATH .
+If no targets are given on the command line, the file named by
+.Ev DSH_NODE_LIST
+is read instead (one target per line; blank lines and lines beginning with
+.Ql #
+are ignored).
+.Pp
+A target token may contain a single bracketed numeric range or list, for
+example
+.Ic node[1-4,7] ,
+which expands to
+.Ic node1 node2 node3 node4 node7 .
+The low bound sets the zero-pad width, so
+.Ic n[08-10]
+yields
+.Ic n08 n09 n10 .
+.Pp
+The remote shell is
+.Xr ssh 1
+or
+.Xr rsh 1
+as chosen by
+.Fl r
+or
+.Ev DSH_NODE_RSH ;
+options for it come from
+.Fl o
+or
+.Ev DSH_NODE_OPTS .
+By default output is held per target and printed in a block once that target
+finishes;
+.Fl s
+streams each target's output as it arrives instead.
+.Sh OPTIONS
+.Bl -tag -width Ds
+.It Fl n Ar node_list
+A comma- or space-separated list of node targets, with optional bracket
+ranges.  May be given more than once; the lists are unioned.
+.It Fl N Ar nodegroups
+A comma-separated list of node group names.  Each is looked up as a file of
+the same name in a directory on
+.Ev DSH_NODEGROUP_PATH ;
+its members are added to the target list.
+.It Fl a
+Add every node in every group file found on
+.Ev DSH_NODEGROUP_PATH .
+.It Fl f Ar fanout
+Maximum number of remote shell processes to run concurrently.  A value of 1
+runs serially.  The default is 64, capped to what the open-file limit allows.
+.It Fl t Ar timeout
+Seconds to wait for output from a remote target.  If none arrives within the
+timeout, an error is reported for that target.  The default is to wait
+indefinitely.
+.It Fl s
+Streaming mode: return output as it becomes available from each target rather
+than holding and ordering it per target.  Output is then unsorted.
+.It Fl v
+Verify each target with a ping before running; a target that does not respond
+is dropped.
+.It Fl l Ar user
+Run the remote command as
+.Ar user
+rather than the local user name.
+.It Fl o Dq Ar node_options
+Options to pass to the remote shell command.  Quote them so they are not
+parsed as
+.Nm
+options.
+.It Fl r Ar node_remote_shell
+The remote shell command used to reach node targets, overriding
+.Ev DSH_NODE_RSH .
+.It Fl S Ar csh|ksh
+Remote shell syntax used when exporting
+.Ev DSH_PATH
+to the target.  The default is
+.Ic ksh .
+.It Fl X Op Ar env_list
+Ignore the
+.Ev DSH_*
+environment variables.  With an attached comma-separated
+.Ar env_list
+( Fl X Ns Ar list ),
+only the named variables are kept; with no argument, all are ignored.
+.It Fl q
+Display the resolved configuration (remote shell, fanout, timeout, syntax,
+group path, node-list source) and exit.
+.It Fl V
+Display version information and exit.
+.It Fl h
+Display usage information and exit.
+.It Op Ar command
+The command to run on each target.  With no command,
+.Nm
+enters interactive mode.
+.El
+.Sh ENVIRONMENT
+.Bl -tag -width Ds
+.It Ev DSH_NODE_LIST
+A file of node targets, one per line, used when no targets are named on the
+command line.  This replaced PSSP's
+.Ev WCOLL .
+.It Ev DSH_NODEGROUP_PATH
+A colon-separated list of directories holding node group files, searched by
+.Fl N
+and
+.Fl a .
+.It Ev DSH_NODE_RSH
+The remote shell command for node targets.  Overridden by
+.Fl r .
+.It Ev DSH_NODE_OPTS
+Options for the remote shell command.  Overridden by
+.Fl o .
+.It Ev DSH_FANOUT
+The default fanout.  Overridden by
+.Fl f .
+.It Ev DSH_TIMEOUT
+The default timeout in seconds.  Overridden by
+.Fl t .
+.It Ev DSH_SYNTAX
+The default remote syntax, csh or ksh.  Overridden by
+.Fl S .
+.It Ev DSH_PATH
+A
+.Ev PATH
+to set on the target before running the command.  If unset or empty, no
+.Ev PATH
+is set.
+.It Ev DSH_DEBUG
+If set, emit debugging information.
+.El
+.Sh COMPATIBILITY
+.Nm
+follows the node-side grammar of the IBM AIX DSM
+.Nm dsh
+command.  Device targets
+.Pq Fl d , Fl D , Fl O , Fl A
+and the IBM DSM/CSM/NIM reporting and monitoring infrastructure are not
+implemented; they have no backend on a generic host.  The context selectors
+.Fl C
+and
+.Fl D
+are reserved for pluggable context modules, not yet available.  Several
+defined flags
+.Pq Fl z , Fl Q , Fl F , Fl m , Fl T , Fl i , Fl c , Fl L , --log
+and script copy
+.Pq Fl e , Fl E
+are planned and are reported as not implemented rather than silently ignored.
+.Sh COPYRIGHT
+Copyright \(co 2004-2024 Larry Lile <lile@users.sourceforge.net>
+.br
+This is free software; see the source for copying conditions.  There
+is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR
+PURPOSE.
+.Sh SEE ALSO
+.Xr dsh 1 ,
+.Xr dsh.pssp 1 ,
+.Xr dshbak 1 ,
+.Xr rsh 1 ,
+.Xr ssh 1

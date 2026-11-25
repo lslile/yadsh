@@ -31,11 +31,17 @@ Makefile.in
 *.la
 .libs/
 /dsh/dsh.pssp
+/dsh/dsh.dsm
 /dshbak/dshbak
 
 # Generated man pages (from the .in templates)
 /dsh/dsh.pssp.1
+/dsh/dsh.dsm.1
 /dshbak/dshbak.1
+
+# --- `make check' artifacts (automake test runner) ---
+/tests/*.log
+/tests/*.trs
 
 # --- dist tarballs ---
 /*.tar.gz

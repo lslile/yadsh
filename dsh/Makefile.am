@@ -20,11 +20,19 @@ COMMON_SOURCES = \
 		queue.c	\
 		resolv.c
 
+if DIALECT_DSM
+bin_PROGRAMS =	dsh.dsm
+dsh_dsm_SOURCES = $(COMMON_SOURCES) parse_dsm.c usage_dsm.c
+dsh_dsm_LDADD = $(RL_LIBS)
+man_MANS = dsh.dsm.1
+CLEANFILES = dsh.dsm.1
+else
 bin_PROGRAMS =	dsh.pssp
-
 dsh_pssp_SOURCES = $(COMMON_SOURCES) parse_pssp.c usage_pssp.c
-
 dsh_pssp_LDADD = $(RL_LIBS)
+man_MANS = dsh.pssp.1
+CLEANFILES = dsh.pssp.1
+endif
 
 noinst_HEADERS = \
 		collective.h \
@@ -39,11 +47,15 @@ noinst_HEADERS = \
 		resolv.h \
 		usage.h
 
-man_MANS = dsh.pssp.1
-
-EXTRA_DIST = dsh.pssp.1.in
-
-CLEANFILES = dsh.pssp.1
+# Both dialects' man-page templates ship in every tarball.  The parser and
+# usage source of the dialect NOT built this time go in EXTRA_DIST too, so
+# `make dist' from either configuration yields a tree that builds both.
+EXTRA_DIST = dsh.pssp.1.in dsh.dsm.1.in
+if DIALECT_DSM
+EXTRA_DIST += parse_pssp.c usage_pssp.c
+else
+EXTRA_DIST += parse_dsm.c usage_dsm.c
+endif
 
 edit = sed \
         -e 's,@bindir\@,$(bindir),g' \
@@ -52,6 +64,10 @@ edit = sed \
 dsh.pssp.1: Makefile $(srcdir)/dsh.pssp.1.in
 	rm -f dsh.pssp.1
 	$(edit) $(srcdir)/dsh.pssp.1.in > dsh.pssp.1
+
+dsh.dsm.1: Makefile $(srcdir)/dsh.dsm.1.in
+	rm -f dsh.dsm.1
+	$(edit) $(srcdir)/dsh.dsm.1.in > dsh.dsm.1
 
 # Convenience symlinks: `dsh' -> the dialect binary, `dsh.1' -> its man page.
 # Default dialect is pssp so `dsh' and `man dsh' keep working as before.
