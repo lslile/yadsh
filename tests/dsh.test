@@ -2,7 +2,7 @@
 # dsh: usage, and fan-out across hosts using a fake remote command (no cluster).
 set -e
 
-DSH=${DSH:-../dsh/dsh}
+DSH=${DSH:-../dsh/dsh.pssp}
 DSHBAK=${DSHBAK:-../dshbak/dshbak}
 FAKE=${FAKE_RCMD:-./fake-rcmd}
 

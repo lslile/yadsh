@@ -2,7 +2,7 @@
 # exit 0 (pass) / non-zero (fail); automake's test runner aggregates them.
 
 AM_TESTS_ENVIRONMENT = \
-	DSH='$(abs_top_builddir)/dsh/dsh'; export DSH; \
+	DSH='$(abs_top_builddir)/dsh/dsh.pssp'; export DSH; \
 	DSHBAK='$(abs_top_builddir)/dshbak/dshbak'; export DSHBAK; \
 	FAKE_RCMD='$(abs_srcdir)/fake-rcmd'; export FAKE_RCMD; \
 	DSHPATH=''; export DSHPATH; \

@@ -4,7 +4,7 @@
 # interactive loop is then unavailable.
 set -e
 
-DSH=${DSH:-../dsh/dsh}
+DSH=${DSH:-../dsh/dsh.pssp}
 
 # Use a throwaway HOME for every invocation so we never read or rewrite the
 # invoking user's real ~/.dsh_history.

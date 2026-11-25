@@ -29,6 +29,23 @@ AS_IF([test -n "$SANITIZE_FLAGS"],
   [SANITIZE_FLAGS="$SANITIZE_FLAGS -fno-omit-frame-pointer -g"])
 AC_SUBST([SANITIZE_FLAGS])
 
+dnl ******************************
+dnl Dialect selection (T14)
+dnl ******************************
+dnl Build-time CLI grammar selection.  Each build produces exactly one
+dnl dialect binary (dsh.$DIALECT); `make install' adds a convenience `dsh'
+dnl symlink pointing at it.  Default is pssp so existing scripts and ~/bin
+dnl wrappers never break.  The dsm grammar arrives in T14b.
+AC_ARG_ENABLE([dialect],
+  [AS_HELP_STRING([--enable-dialect=pssp|dsm],
+    [CLI grammar to build (default: pssp)])],
+  [dialect=$enableval], [dialect=pssp])
+AS_CASE([$dialect],
+  [pssp], [],
+  [dsm], [AC_MSG_ERROR([the dsm dialect is not implemented yet (T14b); use --enable-dialect=pssp])],
+  [AC_MSG_ERROR([invalid --enable-dialect=$dialect (expected pssp or dsm)])])
+AC_SUBST([DIALECT], [$dialect])
+
 dnl Checks for libraries.
 AC_SEARCH_LIBS(inet_aton, resolv)
 AC_SEARCH_LIBS(gethostbyname, nsl)

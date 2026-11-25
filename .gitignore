@@ -30,8 +30,12 @@ Makefile.in
 *.lo
 *.la
 .libs/
-/dsh/dsh
+/dsh/dsh.pssp
 /dshbak/dshbak
+
+# Generated man pages (from the .in templates)
+/dsh/dsh.pssp.1
+/dshbak/dshbak.1
 
 # --- dist tarballs ---
 /*.tar.gz
